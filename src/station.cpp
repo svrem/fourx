@@ -46,6 +46,8 @@ void Station::addInventory(Ware ware, int quantity)
         if (productionModule.halted)
             startNewProductionCycle(productionModule);
     }
+
+    this->reevaluateTradeOffers();
 }
 
 void Station::__debug_print_inventory()
@@ -54,7 +56,7 @@ void Station::__debug_print_inventory()
     std::cout << "Inventory for station " << id << "\n\n";
     for (auto &item : inventory)
     {
-        auto details = ware_details.at(item.first);
+        auto details = wares::wareDetails.at(item.first);
         std::cout << "Ware: " << details.name << "; Quantity: " << item.second << "\n";
     }
     std::cout << "\n===========================================" << std::endl;
@@ -85,8 +87,6 @@ void Station::startNewProductionCycle(ProductionModule &productionModule)
         return;
     }
 
-    std::cout << "Starting new production cycle for module with cycle time " << productionModule.cycle_time << std::endl;
-
     for (auto &inputWare : productionModule.inputWares)
     {
         inventory[inputWare.ware] -= inputWare.quantity;
@@ -95,25 +95,22 @@ void Station::startNewProductionCycle(ProductionModule &productionModule)
 
 void Station::reevaluateTradeOffers()
 {
-    std::set<Ware> productionNecessities;
-    for (auto &productionModule : this->productionModules)
+    for (auto const &[ware, level] : inventory)
     {
-        for (auto &inputWare : productionModule.inputWares)
-        {
-            productionNecessities.insert(inputWare.ware);
-        }
-    }
-};
+        int maintenanceLevelDiff = level - maintenanceLevels.at(ware);
+        TradeType type = maintenanceLevelDiff > 0 ? TradeType::Sell : TradeType::Buy;
+        float quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
+        updateTradeOffer(type, ware, quantity);
+    };
+}
 
 void Station::tick(float dt)
 {
-    std::cout << "Station tick with dt=" << dt << std::endl;
     for (auto &productionModule : this->productionModules)
     {
         if (productionModule.halted)
             continue;
 
-        std::cout << "Production module current cycle time: " << productionModule.current_cycle_time << std::endl;
         productionModule.current_cycle_time += dt;
 
         if (productionModule.current_cycle_time < productionModule.cycle_time)
@@ -129,4 +126,31 @@ void Station::tick(float dt)
         // start new cycle
         startNewProductionCycle(productionModule);
     }
+}
+
+void Station::updateTradeOffer(TradeType type, Ware ware, float quantity)
+{
+    if (type == TradeType::Sell)
+    {
+        float price = this->sellOffers.find(ware) != this->sellOffers.end() ? this->sellOffers[ware].price : wares::wareDetails.at(ware).max_price;
+
+        sellOffers[ware] = {price, quantity};
+        buyOffers.erase(ware);
+
+        std::cout << "Station " << id << " updated sell offer for " << wares::wareDetails.at(ware).name << " to " << price << " credits per unit. For " << quantity << " units." << std::endl;
+
+        return;
+    }
+
+    float price = this->buyOffers.find(ware) != this->buyOffers.end() ? this->buyOffers[ware].price : wares::wareDetails.at(ware).min_price;
+
+    buyOffers[ware] = {price, quantity};
+    sellOffers.erase(ware);
+
+    std::cout << "Station " << id << " updated buy offer for " << wares::wareDetails.at(ware).name << " to " << price << " credits per unit. For " << quantity << " units." << std::endl;
+}
+
+void Station::setMaintenanceLevel(Ware ware, int level)
+{
+    maintenanceLevels[ware] = level;
 }

@@ -1,5 +1,5 @@
 // #include <iostream>
-// #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_image.h>
 
 // #include "ball.hpp"
 // #include "vec.hpp"
@@ -93,6 +93,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <thread>
 
 #include "ship.hpp"
 #include "station.hpp"
@@ -101,31 +102,40 @@ int main()
 {
     std::vector<std::shared_ptr<Station>> stations;
 
-    auto station = std::make_shared<Station>(vec2f(0, 0));
+    auto mining_station = std::make_shared<Station>(vec2f(0, 0));
+    mining_station->setMaintenanceLevel(Ware::Silicon, 0);
+    stations.push_back(mining_station);
+
+    auto production_station = std::make_shared<Station>(vec2f(10, 10));
 
     struct ProductionModule siliconWaferProduction = {};
     siliconWaferProduction.inputWares.push_back({Ware::Silicon, 100});
     siliconWaferProduction.outputWares.push_back({Ware::SiliconWafers, 50});
     siliconWaferProduction.cycle_time = 10;
-    station->addProductionModule(siliconWaferProduction);
 
-    station->addInventory(Ware::Silicon, 1000);
+    production_station->addProductionModule(siliconWaferProduction);
+    production_station->setMaintenanceLevel(Ware::Silicon, 1000);
+    production_station->reevaluateTradeOffers();
 
-    station->tick(10);
-    station->tick(10);
+    stations.push_back(production_station);
 
-    station->__debug_print_inventory();
-
-    stations.push_back(station);
-
-    auto ship = std::make_unique<Ship>(vec2f(0, 0), 10, 100);
-
-    station->addShip(std::move(ship));
-
-    if (stations[0] == station)
+    bool running = true;
+    while (running)
     {
-        std::cout << "Station is the same" << std::endl;
+        mining_station->addInventory(Ware::Silicon, 10);
+
+        std::cout << "Mining station tick\n";
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
+
+    // station->addInventory(Ware::Silicon, 1000);
+
+    // stations.push_back(station);
+
+    // auto ship = std::make_unique<Ship>(vec2f(0, 0), 10, 100);
+
+    // station->addShip(std::move(ship));
 
     return 0;
 }

@@ -7,6 +7,8 @@
 #include <memory>
 #include <map>
 
+using wares::Ware;
+
 class Station;
 
 class Ship

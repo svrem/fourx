@@ -12,9 +12,16 @@
 #include <memory>
 #include <stdexcept>
 
+using wares::Ware;
+
+enum class TradeType
+{
+    Buy,
+    Sell
+};
+
 struct Offer
 {
-    Ware ware;
     float price;
     float quantity;
 };
@@ -54,6 +61,9 @@ public:
     void addInventory(Ware ware, int quantity);
     void removeInventory(Ware ware, int quantity);
 
+    void setMaintenanceLevel(Ware ware, int level);
+    void reevaluateTradeOffers();
+
     void tick(float dt);
 
     void __debug_print_inventory();
@@ -63,8 +73,10 @@ private:
 
     vec2f position;
 
-    std::vector<Offer> sellOffers;
-    std::vector<Offer> buyOffers;
+    std::map<Ware, Offer> sellOffers;
+    std::map<Ware, Offer> buyOffers;
+
+    std::map<Ware, int> maintenanceLevels;
 
     std::vector<ProductionModule> productionModules;
 
@@ -72,6 +84,6 @@ private:
 
     std::vector<std::unique_ptr<Ship>> ships;
 
+    void updateTradeOffer(TradeType type, Ware ware, float quantity);
     void startNewProductionCycle(ProductionModule &productionModule);
-    void reevaluateTradeOffers();
 };

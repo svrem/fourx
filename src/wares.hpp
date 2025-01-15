@@ -1,0 +1,29 @@
+#pragma once
+
+#include <map>
+#include <string>
+
+enum Ware
+{
+    HullParts,
+    EnergyCells,
+    Ore,
+    SiliconWafers,
+    Silicon,
+};
+
+struct WareDetails
+{
+    float density;
+    float min_price;
+    float max_price;
+    std::string name;
+};
+
+const std::map<Ware, WareDetails> ware_details = {
+    {HullParts, {1.0, 10.0, 20.0, "Hull Parts"}},
+    {EnergyCells, {0.5, 5.0, 10.0, "Energy Cells"}},
+    {Ore, {2.0, 1.0, 2.0, "Ore"}},
+    {SiliconWafers, {0.1, 2.0, 4.0, "Silicon Wafers"}},
+    {Silicon, {0.5, 1.0, 2.0, "Silicon"}},
+};

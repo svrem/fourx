@@ -28,6 +28,24 @@ namespace wares
         {EnergyCells, {0.5, 5.0, 10.0, "Energy Cells"}},
         {Ore, {2.0, 1.0, 2.0, "Ore"}},
         {SiliconWafers, {0.1, 2.0, 4.0, "Silicon Wafers"}},
-        {Silicon, {0.5, 1.0, 2.0, "Silicon"}},
+        {Silicon, {0.5, 1.0, 1.0, "Silicon"}},
+    };
+
+    enum class TradeType
+    {
+        Buy,
+        Sell
+    };
+
+    struct Offer
+    {
+        float price;
+        float quantity;
+    };
+
+    struct WareQuantity
+    {
+        Ware ware;
+        int quantity;
     };
 }

@@ -24,14 +24,67 @@
 cmake_minimum_required(VERSION 3.28)
 project(fourx LANGUAGES CXX)
 
+# Set output directory for binaries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-file(GLOB src "src/*.cpp" "src/*.hpp")
+# Enable FetchContent for external dependencies
+include(FetchContent)
 
-add_executable(fourx ${src})
+# Add spdlog via FetchContent
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.15.0 # Specify a stable version tag
+)
+FetchContent_MakeAvailable(spdlog)
 
-find_package(SDL2 REQUIRED)
+# Fetch SDL2
+FetchContent_Declare(
+    SDL2
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-2.30.11 # Use a stable release tag
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(SDL2)
+
+# Fetch SDL2_image
+FetchContent_Declare(
+    SDL2_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+    GIT_TAG release-2.8.4 # Use a stable release tag
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+
+set(SDL2IMAGE_INSTALL OFF)
+set(BUILD_SHARED_LIBS FALSE)
+
+FetchContent_MakeAvailable(SDL2_image)
+
+# Specify source files explicitly for better maintenance
+file (GLOB SOURCES "src/*.cpp" "src/*.hpp")
+
+# Add the executable
+add_executable(fourx ${SOURCES})
+
+# Link spdlog
+target_link_libraries(fourx PRIVATE spdlog::spdlog)
+
+# Add conditional linking for MinGW (Windows)
+if(MINGW)
+    target_link_libraries(fourx PRIVATE ws2_32)
+endif()
+
+# Find SDL2 and SDL2_image packages
+find_package(SDL2 REQUIRED CONFIG)
 find_package(SDL2_image REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS} ${SDL2_IMAGE_INCLUDE_DIRS})
 
-target_link_libraries(fourx ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+# Include SDL2 directories and link libraries
+# target_link_libraries(fourx PRIVATE ${SDL2_LIBRARIES} ${SDL2IMAGE_LIBRARIES})
+target_link_libraries(fourx PRIVATE SDL2::SDL2main SDL2::SDL2-static SDL2_image::SDL2_image-static)
+
+file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR}/bin)
+
+# Enable C++17 (or a version you prefer)
+target_compile_features(fourx PRIVATE cxx_std_17)

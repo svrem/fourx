@@ -4,26 +4,30 @@
 #include <cassert>
 #include <set>
 
-Station::Station(vec2f position) : position(position)
+#include "SDL2/SDL_image.h"
+
+Station::Station(vec2f position, SDL_Renderer *renderer) : position(position), renderer(renderer)
 {
     id = utils::generateId();
+
+    texture = IMG_LoadTexture(renderer, "assets/station.png");
 }
 
 void Station::addShip(std::shared_ptr<Ship> ship)
 {
     ship->claim(shared_from_this());
-    ships.push_back(std::move(ship));
-    printf("Ship added to station %d with ID=%d, current fleet size %d.\n", id, ships.back()->getId(), ships.size());
+    owned_ships.push_back(std::move(ship));
+    printf("Ship added to station %d with ID=%d, current fleet size %d.\n", id, owned_ships.back()->getId(), owned_ships.size());
 }
 
 void Station::removeShip(int ship_id)
 {
-    for (int i = 0; i < ships.size(); i++)
+    for (int i = 0; i < owned_ships.size(); i++)
     {
 
-        if (ships[i]->getId() == ship_id)
+        if (owned_ships[i]->getId() == ship_id)
         {
-            ships.erase(ships.begin() + i);
+            owned_ships.erase(owned_ships.begin() + i);
             return;
         }
     }
@@ -188,8 +192,31 @@ void Station::acceptTrade(wares::TradeType type, Ware ware, float quantity)
     else
     {
         printf("Buying %f units of %d\n", quantity, ware);
-        // buyReservations[ware] += quantity;
-        updateInventory(ware, quantity);
+        buyReservations[ware] += quantity;
         reevaluateTradeOffers();
     }
+}
+
+void Station::requestDock(std::shared_ptr<Ship> ship)
+{
+    if (docked_ships.size() < m_max_docked_ships)
+    {
+        docked_ships.push_back(ship);
+        ship->dock(shared_from_this());
+        return;
+    }
+
+    dock_queue.push_back(ship);
+}
+
+// SDL
+void Station::render()
+{
+    SDL_Rect dest;
+    dest.x = position.x;
+    dest.y = position.y;
+    dest.w = 30;
+    dest.h = 30;
+
+    SDL_RenderCopy(renderer, texture, NULL, &dest);
 }

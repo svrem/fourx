@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <iostream>
+#include <random>
 
-Ship::Ship(vec2f position, float maxSpeed, float cargoCapacity) : position(position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity)
+#include "spdlog/spdlog.h"
+
+Ship::Ship(vec2f position, float maxSpeed, float cargoCapacity) : m_position(position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity)
 {
     this->id = utils::generateId();
 }
@@ -15,7 +18,7 @@ void Ship::claim(std::shared_ptr<Station> station)
 
 void Ship::dock(std::shared_ptr<Station> station)
 {
-    this->docked_station = station;
+    this->dockedStation = station;
 }
 
 void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
@@ -91,12 +94,101 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
             this->owner->acceptTrade(wares::TradeType::Sell, ware, quantity);
             station->acceptTrade(wares::TradeType::Buy, ware, quantity);
         }
-        else
+        else if (type == wares::TradeType::Sell)
         {
             float quantity = std::min(buyOffersOwner[ware].quantity, sellOffersStation[ware].quantity);
 
             this->owner->acceptTrade(wares::TradeType::Buy, ware, quantity);
             station->acceptTrade(wares::TradeType::Sell, ware, quantity);
         }
+
+        this->searchingForTrade = false;
+        this->undock();
+        this->setTarget(station);
     }
+}
+
+void Ship::undock()
+{
+    this->dockedStation = nullptr;
+}
+
+void Ship::setTarget(vec2f target)
+{
+    this->m_target = target;
+}
+
+void Ship::setTarget(std::shared_ptr<Station> station)
+{
+    const static float offset = 50;
+
+    const vec2f &stationPosition = station->getPosition();
+
+    float deltaX = stationPosition.x - this->m_position.x;
+    float deltaY = stationPosition.y - this->m_position.y;
+    float alpha = atan2(deltaY, deltaX);
+
+    float x = stationPosition.x - offset * cos(alpha);
+    float y = stationPosition.y - offset * sin(alpha);
+
+    this->targetStation = station;
+    this->setTarget(vec2f(x, y));
+}
+
+void Ship::tick(float dt)
+{
+    if (this->dockedStation != nullptr)
+    {
+        return;
+    }
+
+    if (this->m_target.has_value() == false)
+    {
+        return;
+    }
+
+    vec2f target = this->m_target.value();
+
+    float deltaX = target.x - this->m_position.x;
+    float deltaY = target.y - this->m_position.y;
+    float distance2 = deltaX * deltaX + deltaY * deltaY;
+
+    if (distance2 < this->maxSpeed * dt * this->maxSpeed * dt)
+    {
+        this->m_position = target;
+
+        if (this->targetStation != nullptr)
+        {
+            this->targetStation->requestDock(this->shared_from_this());
+            this->targetStation = nullptr;
+        }
+
+        this->m_target.reset();
+
+        return;
+    }
+
+    float alpha = atan2(deltaY, deltaX);
+
+    float x = this->m_position.x + this->maxSpeed * dt * cos(alpha);
+    float y = this->m_position.y + this->maxSpeed * dt * sin(alpha);
+
+    this->m_position = vec2f(x, y);
+}
+
+void Ship::render(SDL_Renderer *renderer)
+{
+    if (this->dockedStation != nullptr)
+    {
+        return;
+    }
+
+    SDL_Rect dest;
+    dest.x = this->m_position.x;
+    dest.y = this->m_position.y;
+    dest.w = 10;
+    dest.h = 10;
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+    SDL_RenderFillRect(renderer, &dest);
 }

@@ -1,16 +1,17 @@
-#include <iostream>
-#include <vector>
-#include <memory>
 
-#include <SDL2/SDL_image.h>
-
-#include "spdlog/spdlog.h"
-#include "spdlog/cfg/env.h"
-#include "spdlog/fmt/ostr.h"
 
 #include "ship.hpp"
 #include "station.hpp"
 #include "vec.hpp"
+
+#include <SDL2/SDL_image.h>
+#include "spdlog/spdlog.h"
+#include "spdlog/cfg/env.h"
+#include "spdlog/fmt/ostr.h"
+
+#include <iostream>
+#include <vector>
+#include <memory>
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -74,19 +75,19 @@ int main(int argc, char **args)
         stations;
     std::vector<std::shared_ptr<Ship>> ships;
 
-    auto ship1 = std::make_shared<Ship>(vec2f(300, 400), 100, 0.1);
+    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 100, 1000000);
     ships.push_back(ship1);
 
     auto mining_station = std::make_shared<Station>(vec2f(300, 400), renderer);
 
     struct ProductionModule siliconProduction = {};
-    siliconProduction.outputWares.push_back({Ware::Silicon, 1000});
+    siliconProduction.outputWares.push_back({Ware::Silicon, 10});
     siliconProduction.cycle_time = 1;
     siliconProduction.halted = false;
 
     mining_station->addProductionModule(siliconProduction);
     mining_station->setMaintenanceLevel(Ware::Silicon, 0);
-    mining_station->addShip(ship1);
+    // mining_station->addShip(ship1);
     stations.push_back(mining_station);
 
     auto production_station = std::make_shared<Station>(vec2f(150, 200), renderer);
@@ -100,7 +101,7 @@ int main(int argc, char **args)
     production_station->setMaintenanceLevel(Ware::Silicon, 1000);
     production_station->reevaluateTradeOffers();
 
-    ship1->setTarget(production_station);
+    production_station->addShip(ship1);
 
     stations.push_back(production_station);
 
@@ -144,11 +145,13 @@ int main(int argc, char **args)
 
         for (auto &station : stations)
         {
+            station->tick(deltaTime);
             station->render();
         }
 
         for (auto &ship : ships)
         {
+            ship->searchForTrade(stations);
             ship->tick(deltaTime);
             ship->render(renderer);
         }

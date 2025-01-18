@@ -5,16 +5,16 @@
 #include "wares.hpp"
 #include "ship.hpp"
 
+// SDL
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+
 // std
 #include <map>
 #include <vector>
 #include <string>
 #include <memory>
 #include <stdexcept>
-
-// SDL
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 
 using wares::Ware;
 
@@ -26,7 +26,7 @@ struct ProductionModule
     bool halted = true;
 
     int cycle_time;
-    int current_cycle_time = 0;
+    float current_cycle_time = 0;
 };
 
 class Ship;
@@ -45,6 +45,8 @@ public:
 
     void setMaintenanceLevel(Ware ware, int level);
     void reevaluateTradeOffers();
+
+    void transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity);
 
     void requestDock(std::shared_ptr<Ship> ship);
 

@@ -1,10 +1,10 @@
 #include "ship.hpp"
 
+#include "spdlog/spdlog.h"
+
 #include <algorithm>
 #include <iostream>
 #include <random>
-
-#include "spdlog/spdlog.h"
 
 Ship::Ship(vec2f position, float maxSpeed, float cargoCapacity) : m_position(position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity)
 {
@@ -23,6 +23,13 @@ void Ship::dock(std::shared_ptr<Station> station)
 
 void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
 {
+    if (this->m_orders.size() > 0)
+    {
+        return;
+    }
+
+    spdlog::debug("Searching for trade for ship {}", this->id);
+
     std::vector<size_t> station_indices;
     station_indices.reserve(stations.size());
 
@@ -87,12 +94,34 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
         wares::TradeType type = trade.first;
         wares::Ware ware = trade.second;
 
+        this->addOrder(orders::Undock{});
+
         if (type == wares::TradeType::Buy)
         {
             float quantity = std::min(sellOffersOwner[ware].quantity, buyOffersStation[ware].quantity);
 
             this->owner->acceptTrade(wares::TradeType::Sell, ware, quantity);
             station->acceptTrade(wares::TradeType::Buy, ware, quantity);
+
+            this->addOrder(orders::DockAtStation{
+                owner,
+            });
+            this->addOrder(orders::TradeWithStation{
+                owner,
+                wares::TradeType::Buy,
+                ware,
+                quantity,
+            });
+            this->addOrder(orders::Undock{});
+            this->addOrder(orders::DockAtStation{
+                station,
+            });
+            this->addOrder(orders::TradeWithStation{
+                station,
+                wares::TradeType::Sell,
+                ware,
+                quantity,
+            });
         }
         else if (type == wares::TradeType::Sell)
         {
@@ -100,12 +129,103 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
 
             this->owner->acceptTrade(wares::TradeType::Buy, ware, quantity);
             station->acceptTrade(wares::TradeType::Sell, ware, quantity);
+
+            this->addOrder(orders::DockAtStation{
+                station,
+            });
+            this->addOrder(orders::TradeWithStation{
+                station,
+                wares::TradeType::Buy,
+                ware,
+                quantity,
+            });
+            this->addOrder(orders::Undock{});
+            this->addOrder(orders::DockAtStation{
+                this->owner,
+            });
+            this->addOrder(orders::TradeWithStation{
+                this->owner,
+                wares::TradeType::Sell,
+                ware,
+                quantity,
+            });
         }
 
-        this->searchingForTrade = false;
-        this->undock();
-        this->setTarget(station);
+        this->executeNextOrder();
+        break;
     }
+
+    // this->undock();
+    // this->setTarget(station);
+}
+
+void Ship::addOrder(ShipOrder order)
+{
+    this->m_orders.push_back(order);
+}
+
+void Ship::executeNextOrder()
+{
+    if (this->m_orders.size() == 0)
+    {
+        return;
+    }
+
+    spdlog::debug("Executing next order for ship {}", this->id);
+
+    ShipOrder order = this->m_orders[0];
+    this->m_orders.erase(this->m_orders.begin());
+
+    if (std::holds_alternative<orders::DockAtStation>(order))
+    {
+        spdlog::debug("ShipOrder: Docking at station");
+        auto dockOrder = std::get<orders::DockAtStation>(order);
+        this->setTarget(dockOrder.station);
+    }
+    else if (std::holds_alternative<orders::TradeWithStation>(order))
+    {
+        spdlog::debug("ShipOrder: Trading with station");
+        auto tradeOrder = std::get<orders::TradeWithStation>(order);
+        assert(this->dockedStation == tradeOrder.station);
+
+        if (tradeOrder.type == wares::TradeType::Buy)
+        {
+            this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, tradeOrder.quantity);
+        }
+        else if (tradeOrder.type == wares::TradeType::Sell)
+        {
+            this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, -tradeOrder.quantity);
+        }
+
+        this->executeNextOrder();
+
+        // // transfer wares
+        // if (tradeOrder.type == wares::TradeType::Buy)
+        // {
+        //     this->cargo[tradeOrder.ware] += tradeOrder.quantity;
+        //     this->dockedStation->updateInventory(tradeOrder.ware, -tradeOrder.quantity);
+        // }
+        // else if (tradeOrder.type == wares::TradeType::Sell)
+        // {
+        //     this->cargo[tradeOrder.ware] -= tradeOrder.quantity;
+        // }
+    }
+    else if (std::holds_alternative<orders::Undock>(order))
+    {
+        spdlog::debug("ShipOrder: Undocking");
+        this->undock();
+        this->executeNextOrder();
+    }
+}
+
+void Ship::addWare(Ware ware, int quantity)
+{
+    if (this->cargo.find(ware) == this->cargo.end())
+    {
+        this->cargo[ware] = 0;
+    }
+
+    this->cargo[ware] += quantity;
 }
 
 void Ship::undock()
@@ -120,7 +240,7 @@ void Ship::setTarget(vec2f target)
 
 void Ship::setTarget(std::shared_ptr<Station> station)
 {
-    const static float offset = 50;
+    const static float offset = 1;
 
     const vec2f &stationPosition = station->getPosition();
 
@@ -164,6 +284,7 @@ void Ship::tick(float dt)
         }
 
         this->m_target.reset();
+        this->executeNextOrder();
 
         return;
     }

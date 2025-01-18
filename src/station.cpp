@@ -1,10 +1,11 @@
 #include "station.hpp"
 
+#include "SDL2/SDL_image.h"
+#include "spdlog/spdlog.h"
+
 #include <iostream>
 #include <cassert>
 #include <set>
-
-#include "SDL2/SDL_image.h"
 
 Station::Station(vec2f position, SDL_Renderer *renderer) : position(position), renderer(renderer)
 {
@@ -152,8 +153,6 @@ void Station::updateTradeOffer(wares::TradeType type, Ware ware, float quantity)
         sellOffers[ware] = {price, quantity};
         buyOffers.erase(ware);
 
-        std::cout << "Station " << id << " updated sell offer for " << wares::wareDetails.at(ware).name << " to " << price << " credits per unit. For " << quantity << " units." << std::endl;
-
         return;
     }
 
@@ -161,8 +160,6 @@ void Station::updateTradeOffer(wares::TradeType type, Ware ware, float quantity)
 
     buyOffers[ware] = {price, quantity};
     sellOffers.erase(ware);
-
-    std::cout << "Station " << id << " updated buy offer for " << wares::wareDetails.at(ware).name << " to " << price << " credits per unit. For " << quantity << " units." << std::endl;
 }
 
 void Station::setMaintenanceLevel(Ware ware, int level)
@@ -195,6 +192,30 @@ void Station::acceptTrade(wares::TradeType type, Ware ware, float quantity)
         buyReservations[ware] += quantity;
         reevaluateTradeOffers();
     }
+}
+
+void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity)
+{
+    if (inventory[ware] < quantity)
+    {
+        throw std::runtime_error("Not enough inventory to transfer");
+    }
+
+    if (ship->getCargoSpace() < quantity)
+    {
+        throw std::runtime_error("Not enough cargo space to transfer");
+    }
+
+    if (quantity < 0)
+    {
+        buyReservations[ware] += quantity;
+    }
+    else
+    {
+        sellReservations[ware] += quantity;
+    }
+
+    ship->addWare(ware, quantity);
 }
 
 void Station::requestDock(std::shared_ptr<Ship> ship)

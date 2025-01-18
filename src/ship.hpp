@@ -3,6 +3,7 @@
 #include "vec.hpp"
 #include "station.hpp"
 #include "wares.hpp"
+#include "orders.hpp"
 
 #include <SDL2/SDL.h>
 
@@ -25,19 +26,16 @@ public:
 
     void searchForTrade(const std::vector<std::shared_ptr<Station>> &stations);
 
-    void undock();
+    void addWare(Ware ware, int quantity);
 
-    void setTarget(vec2f target);
-    void setTarget(std::shared_ptr<Station> station);
-
-    int getId() const
+    const int getId() const
     {
         return id;
     }
 
-    bool getSearchingForTrade() const
+    const int getCargoSpace() const
     {
-        return searchingForTrade;
+        return cargoCapacity;
     }
 
 private:
@@ -47,6 +45,8 @@ private:
     std::shared_ptr<Station> dockedStation = nullptr;
     std::shared_ptr<Station> targetStation = nullptr;
 
+    std::vector<ShipOrder> m_orders;
+
     vec2f m_position;
     std::optional<vec2f> m_target;
 
@@ -55,7 +55,13 @@ private:
 
     std::map<Ware, int> cargo;
 
-    bool searchingForTrade = false;
+    void undock();
+
+    void setTarget(vec2f target);
+    void setTarget(std::shared_ptr<Station> station);
+
+    void addOrder(ShipOrder order);
+    void executeNextOrder();
 
 public:
     void render(SDL_Renderer *renderer);

@@ -18,7 +18,9 @@ void Ship::claim(std::shared_ptr<Station> station)
 
 void Ship::dock(std::shared_ptr<Station> station)
 {
+    spdlog::debug("Ship {} docking at station {}", this->id, station->getId());
     this->dockedStation = station;
+    this->executeNextOrder();
 }
 
 void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
@@ -180,6 +182,9 @@ void Ship::executeNextOrder()
     {
         spdlog::debug("ShipOrder: Docking at station");
         auto dockOrder = std::get<orders::DockAtStation>(order);
+
+        assert(this->dockedStation == nullptr);
+
         this->setTarget(dockOrder.station);
     }
     else if (std::holds_alternative<orders::TradeWithStation>(order))
@@ -190,10 +195,12 @@ void Ship::executeNextOrder()
 
         if (tradeOrder.type == wares::TradeType::Buy)
         {
+            spdlog::info("Ship {} buying {} units of ware", this->id, tradeOrder.quantity);
             this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, tradeOrder.quantity);
         }
         else if (tradeOrder.type == wares::TradeType::Sell)
         {
+            spdlog::info("Ship {} selling {} units of ware", this->id, tradeOrder.quantity);
             this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, -tradeOrder.quantity);
         }
 
@@ -214,7 +221,6 @@ void Ship::executeNextOrder()
     {
         spdlog::debug("ShipOrder: Undocking");
         this->undock();
-        this->executeNextOrder();
     }
 }
 
@@ -226,20 +232,33 @@ void Ship::addWare(Ware ware, int quantity)
     }
 
     this->cargo[ware] += quantity;
+    printf("Ship %d now has %d units of ware %d\n", this->id, this->cargo[ware], ware);
 }
 
 void Ship::undock()
 {
+    if (this->dockedStation == nullptr)
+    {
+        executeNextOrder();
+        return;
+    }
+
+    this->dockedStation->undock(this->shared_from_this());
     this->dockedStation = nullptr;
+    this->executeNextOrder();
 }
 
 void Ship::setTarget(vec2f target)
 {
     this->m_target = target;
+
+    assert(this->m_target.has_value());
 }
 
 void Ship::setTarget(std::shared_ptr<Station> station)
 {
+    assert(station != nullptr);
+
     const static float offset = 1;
 
     const vec2f &stationPosition = station->getPosition();
@@ -259,10 +278,11 @@ void Ship::tick(float dt)
 {
     if (this->dockedStation != nullptr)
     {
+        printf("Docked at station\n)");
         return;
     }
 
-    if (this->m_target.has_value() == false)
+    if (!this->m_target.has_value())
     {
         return;
     }
@@ -275,16 +295,19 @@ void Ship::tick(float dt)
 
     if (distance2 < this->maxSpeed * dt * this->maxSpeed * dt)
     {
+
+        spdlog::debug("Ship {} reached target", this->id);
         this->m_position = target;
 
+        this->m_target.reset();
+
+        printf("Requesting dock at station\n");
         if (this->targetStation != nullptr)
         {
-            this->targetStation->requestDock(this->shared_from_this());
+            auto t = this->targetStation;
             this->targetStation = nullptr;
+            t->requestDock(this->shared_from_this());
         }
-
-        this->m_target.reset();
-        this->executeNextOrder();
 
         return;
     }

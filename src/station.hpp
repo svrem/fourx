@@ -49,6 +49,7 @@ public:
     void transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity);
 
     void requestDock(std::shared_ptr<Ship> ship);
+    void undock(std::shared_ptr<Ship> ship);
 
     void tick(float dt);
 
@@ -89,8 +90,11 @@ private:
     std::vector<ProductionModule> productionModules;
 
     std::map<Ware, int> inventory;
+    // Virtual inventory keeping track of the wares that the station is planning to buy
     std::map<Ware, int> buyReservations;
-    std::map<Ware, int> sellReservations;
+    // Virtual inventory keeping track of the wares that the station is planning to sell
+    std::map<Ware, int>
+        sellReservations;
 
     const int m_max_docked_ships = 5;
 

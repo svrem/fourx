@@ -39,6 +39,14 @@ void Station::removeShip(int ship_id)
 void Station::addProductionModule(ProductionModule module)
 {
     productionModules.push_back(module);
+
+    for (auto &inputWare : module.inputWares)
+    {
+        if (inventory.find(inputWare.ware) == inventory.end())
+        {
+            inventory[inputWare.ware] = 0;
+        }
+    }
 }
 
 void Station::updateInventory(Ware ware, int quantity)
@@ -112,7 +120,9 @@ void Station::reevaluateTradeOffers()
             continue;
         }
 
-        int level = inventoryLevel + buyReservations[ware] - sellReservations[ware];
+        printf("Inventory level: %d, buy reservations: %f, sell reservations: %f\n", inventoryLevel, buyReservations[ware], sellReservations[ware]);
+
+        int level = inventoryLevel + buyReservations[ware];
         int maintenanceLevelDiff = level - maintenanceLevels.at(ware);
         wares::TradeType type = maintenanceLevelDiff > 0 ? wares::TradeType::Sell : wares::TradeType::Buy;
         float quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
@@ -183,20 +193,33 @@ void Station::acceptTrade(wares::TradeType type, Ware ware, float quantity)
 
         printf("Selling %f units of %d\n", quantity, ware);
 
+        if (sellReservations.find(ware) == sellReservations.end())
+        {
+            sellReservations[ware] = 0;
+        }
+
         sellReservations[ware] += quantity;
         updateInventory(ware, -quantity);
     }
     else
     {
+        if (buyReservations.find(ware) == buyReservations.end())
+        {
+            buyReservations[ware] = 0;
+        }
+
         printf("Buying %f units of %d\n", quantity, ware);
         buyReservations[ware] += quantity;
-        reevaluateTradeOffers();
     }
+    reevaluateTradeOffers();
 }
 
+// Transfers wares between the station and a ship. The quantity should be positive if the ship is buying,
+// and negative if the ship is selling. Throws an exception if the trade is invalid (e.g. not enough inventory to sell).
 void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity)
 {
-    if (inventory[ware] < quantity)
+    printf("Quantity: %f, inventory: %d\n", quantity, inventory[ware]);
+    if (sellReservations[ware] < quantity)
     {
         throw std::runtime_error("Not enough inventory to transfer");
     }
@@ -208,7 +231,7 @@ void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantit
 
     if (quantity < 0)
     {
-        buyReservations[ware] += quantity;
+        buyReservations[ware] -= quantity;
     }
     else
     {
@@ -216,6 +239,7 @@ void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantit
     }
 
     ship->addWare(ware, quantity);
+    this->reevaluateTradeOffers();
 }
 
 void Station::requestDock(std::shared_ptr<Ship> ship)
@@ -228,6 +252,21 @@ void Station::requestDock(std::shared_ptr<Ship> ship)
     }
 
     dock_queue.push_back(ship);
+}
+
+void Station::undock(std::shared_ptr<Ship> ship)
+{
+
+    for (int i = 0; i < docked_ships.size(); i++)
+    {
+        if (docked_ships[i]->getId() == ship->getId())
+        {
+            docked_ships.erase(docked_ships.begin() + i);
+            return;
+        }
+    }
+
+    throw std::runtime_error("Ship not found");
 }
 
 // SDL

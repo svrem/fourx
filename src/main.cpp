@@ -75,7 +75,7 @@ int main(int argc, char **args)
         stations;
     std::vector<std::shared_ptr<Ship>> ships;
 
-    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 100, 1000000);
+    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
     ships.push_back(ship1);
 
     auto mining_station = std::make_shared<Station>(vec2f(300, 400), renderer);

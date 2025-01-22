@@ -62,6 +62,20 @@ set(BUILD_SHARED_LIBS FALSE)
 
 FetchContent_MakeAvailable(SDL2_image)
 
+FetchContent_Declare(
+    SDL2_ttf
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+    GIT_TAG release-2.24.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+)
+
+set(SDL2TTF_INSTALL OFF)
+set(BUILD_SHARED_LIBS FALSE)
+
+FetchContent_MakeAvailable(SDL2_ttf)
+list(APPEND CMAKE_PREFIX_PATH ${SDL2_ttf_PATH})
+
 # Specify source files explicitly for better maintenance
 file (GLOB SOURCES "src/*.cpp" "src/*.hpp")
 
@@ -76,13 +90,15 @@ if(MINGW)
     target_link_libraries(fourx PRIVATE ws2_32)
 endif()
 
+
 # Find SDL2 and SDL2_image packages
 find_package(SDL2 REQUIRED CONFIG)
 find_package(SDL2_image REQUIRED)
+find_package(SDL2_ttf REQUIRED)
 
 # Include SDL2 directories and link libraries
 # target_link_libraries(fourx PRIVATE ${SDL2_LIBRARIES} ${SDL2IMAGE_LIBRARIES})
-target_link_libraries(fourx PRIVATE SDL2::SDL2main SDL2::SDL2-static SDL2_image::SDL2_image-static)
+target_link_libraries(fourx PRIVATE SDL2::SDL2main SDL2::SDL2-static SDL2_image::SDL2_image-static SDL2_ttf::SDL2_ttf-static)
 
 file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR}/bin)
 

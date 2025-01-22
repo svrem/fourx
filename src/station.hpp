@@ -8,6 +8,7 @@
 // SDL
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 
 // std
 #include <map>
@@ -34,7 +35,7 @@ class Ship;
 class Station : public std::enable_shared_from_this<Station>
 {
 public:
-    Station(vec2f position, SDL_Renderer *renderer);
+    Station(vec2f position, std::string_view name, SDL_Renderer *renderer, TTF_Font *font);
 
     void addShip(std::shared_ptr<Ship> ship);
     void removeShip(int ship_id);
@@ -70,17 +71,18 @@ public:
 
     const vec2f &getPosition() const
     {
-        return position;
+        return m_Position;
     }
 
     void __debug_print_inventory() const;
 
 private:
     int id;
+    std::string_view name;
 
     float credits;
 
-    vec2f position;
+    vec2f m_Position;
 
     std::map<Ware, wares::Offer> sellOffers;
     std::map<Ware, wares::Offer> buyOffers;
@@ -103,16 +105,18 @@ private:
 
     std::vector<std::shared_ptr<Ship>> dock_queue;
 
-    void updateTradeOffer(wares::TradeType type, wares::Ware ware, float quantity);
+    void updateTradeOffer(wares::TradeType type, wares::Ware ware, float quantity, float priceChangePercentage);
     void startNewProductionCycle(ProductionModule &productionModule);
 
     void updateInventory(Ware ware, int quantity);
 
     // SDL
 public:
-    void render();
+    void render(vec2f camera);
 
 private:
     SDL_Renderer *renderer;
     SDL_Texture *texture;
+    SDL_Texture *nameTexture;
+    int nameTextWidth, nameTextHeight;
 };

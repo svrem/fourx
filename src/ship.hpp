@@ -19,7 +19,7 @@ class Station;
 class Ship : public std::enable_shared_from_this<Ship>
 {
 public:
-    Ship(vec2f position, float max_speed, float cargoCapacity);
+    Ship(vec2f m_Position, float max_speed, float cargoCapacity, SDL_Renderer *renderer);
 
     void claim(std::shared_ptr<Station> station);
     void dock(std::shared_ptr<Station> station);
@@ -45,15 +45,17 @@ private:
     std::shared_ptr<Station> dockedStation = nullptr;
     std::shared_ptr<Station> targetStation = nullptr;
 
-    std::vector<ShipOrder> m_orders;
+    std::vector<ShipOrder> m_Orders;
 
-    vec2f m_position;
-    std::optional<vec2f> m_target;
+    vec2f m_Position;
+    std::optional<vec2f> m_Target;
+
+    SDL_Renderer *m_Renderer;
 
     const float maxSpeed;
     const float cargoCapacity;
 
-    std::map<Ware, int> cargo;
+    std::map<Ware, int> m_Cargo;
 
     void undock();
 
@@ -64,6 +66,6 @@ private:
     void executeNextOrder();
 
 public:
-    void render(SDL_Renderer *renderer);
+    void render(vec2f camera);
     void tick(float dt);
 };

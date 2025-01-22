@@ -5,6 +5,7 @@
 #include "vec.hpp"
 
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include "spdlog/spdlog.h"
 #include "spdlog/cfg/env.h"
 #include "spdlog/fmt/ostr.h"
@@ -15,6 +16,8 @@
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
+
+#define PLAYER_SPEED 500
 
 // You shouldn't really use this statement, but it's fine for small programs
 using namespace std;
@@ -30,6 +33,12 @@ int main(int argc, char **args)
 
     // Pointers to our window and surface
     SDL_Window *window = NULL;
+
+    if (TTF_Init() < 0)
+    {
+        cout << "Error initializing TTF: " << SDL_GetError() << endl;
+        return 1;
+    }
 
     // Initialize SDL. SDL_Init will return -1 if it fails.
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
@@ -68,6 +77,20 @@ int main(int argc, char **args)
 
     IMG_Init(IMG_INIT_PNG);
 
+    TTF_Font *inter = TTF_OpenFont("assets/ttf/Inter/Inter-VariableFont_opsz,wght.ttf", 16);
+    TTF_SetFontStyle(inter, TTF_STYLE_NORMAL);
+    TTF_SetFontOutline(inter, 0);
+    TTF_SetFontKerning(inter, 1);
+    TTF_SetFontHinting(inter, TTF_HINTING_NORMAL);
+    TTF_SetFontWrappedAlign(inter, TTF_STYLE_NORMAL);
+
+    if (!inter)
+    {
+        cout << "Error loading font: " << SDL_GetError() << endl;
+        // End the program
+        return 1;
+    }
+
     SDL_Texture *shipTexture = IMG_LoadTexture(renderer, "assets/ship.png");
     SDL_Texture *stationTexture = IMG_LoadTexture(renderer, "assets/station.png");
 
@@ -75,35 +98,100 @@ int main(int argc, char **args)
         stations;
     std::vector<std::shared_ptr<Ship>> ships;
 
-    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000, renderer);
     ships.push_back(ship1);
+    auto ship2 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000, renderer);
+    ships.push_back(ship2);
+    // auto ship3 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship3);
+    // auto ship4 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship4);
+    // auto ship5 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship5);
+    // auto ship6 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship6);
+    // auto ship7 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship7);
+    // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // ships.push_back(ship8);
 
-    auto mining_station = std::make_shared<Station>(vec2f(300, 400), renderer);
+    auto mining_station = std::make_shared<Station>(vec2f(300, 400), "Silicon Miner Station 1", renderer, inter);
 
     struct ProductionModule siliconProduction = {};
-    siliconProduction.outputWares.push_back({Ware::Silicon, 10});
+    siliconProduction.outputWares.push_back({Ware::Silicon, 50});
     siliconProduction.cycle_time = 1;
     siliconProduction.halted = false;
 
     mining_station->addProductionModule(siliconProduction);
     mining_station->setMaintenanceLevel(Ware::Silicon, 0);
-    // mining_station->addShip(ship1);
     stations.push_back(mining_station);
 
-    auto production_station = std::make_shared<Station>(vec2f(150, 200), renderer);
+    auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
+
+    struct ProductionModule siliconProduction2 = {};
+    siliconProduction2.outputWares.push_back({Ware::Silicon, 50});
+    siliconProduction2.cycle_time = 1;
+    siliconProduction2.halted = false;
+
+    mining_station_2->addProductionModule(siliconProduction2);
+    mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
+
+    stations.push_back(mining_station_2);
+
+    // auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
+
+    // struct ProductionModule siliconProduction2 = {};
+    // siliconProduction2.outputWares.push_back({Ware::Silicon, 10});
+    // siliconProduction2.cycle_time = 10;
+    // siliconProduction2.halted = false;
+
+    // mining_station_2->addProductionModule(siliconProduction);
+    // mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
+    // mining_station->addShip(ship2);
+    // stations.push_back(mining_station_2);
+
+    auto production_station = std::make_shared<Station>(vec2f(150, 200), "Silicon Wafer Production 1", renderer, inter);
 
     struct ProductionModule siliconWaferProduction = {};
-    siliconWaferProduction.inputWares.push_back({Ware::Silicon, 100});
+    siliconWaferProduction.inputWares.push_back({Ware::Silicon, 50});
     siliconWaferProduction.outputWares.push_back({Ware::SiliconWafers, 50});
-    siliconWaferProduction.cycle_time = 10;
+    siliconWaferProduction.cycle_time = 1;
 
     production_station->addProductionModule(siliconWaferProduction);
     production_station->setMaintenanceLevel(Ware::Silicon, 1000);
+    // production_station->setMaintenanceLevel(Ware::SiliconWafers, 100);
     production_station->reevaluateTradeOffers();
 
     production_station->addShip(ship1);
 
     stations.push_back(production_station);
+
+    auto production_station_2 = std::make_shared<Station>(vec2f(800, 500), "Silicon Wafer Production 2", renderer, inter);
+
+    struct ProductionModule siliconWaferProduction2 = {};
+    siliconWaferProduction2.inputWares.push_back({Ware::Silicon, 50});
+    siliconWaferProduction2.outputWares.push_back({Ware::SiliconWafers, 50});
+    siliconWaferProduction2.cycle_time = 1;
+
+    production_station_2->addProductionModule(siliconWaferProduction2);
+    production_station_2->setMaintenanceLevel(Ware::Silicon, 1000);
+    // production_station_2->setMaintenanceLevel(Ware::SiliconWafers, 100);
+    production_station_2->reevaluateTradeOffers();
+
+    production_station_2->addShip(ship2);
+
+    stations.push_back(production_station_2);
+
+    // auto trade_station = std::make_shared<Station>(vec2f(500, 500), "Trade Station 1", renderer, inter);
+
+    // trade_station->setMaintenanceLevel(Ware::SiliconWafers, 1000);
+    // trade_station->reevaluateTradeOffers();
+
+    // stations.push_back(trade_station);
+
+    vec2f camera = vec2f(0, 0);
+
+    bool movingRight = false, movingLeft = false, movingUp = false, movingDown = false;
 
     bool quit = false;
     SDL_Event event;
@@ -122,7 +210,61 @@ int main(int argc, char **args)
             {
                 quit = true;
             }
+            if (event.type == SDL_KEYDOWN)
+            {
+                switch (event.key.keysym.sym)
+                {
+                case SDLK_RIGHT:
+                    movingRight = true;
+                    break;
+                case SDLK_LEFT:
+                    movingLeft = true;
+                    break;
+                case SDLK_UP:
+                    movingUp = true;
+                    break;
+                case SDLK_DOWN:
+                    movingDown = true;
+                    break;
+                }
+            }
+            if (event.type == SDL_KEYUP)
+            {
+                switch (event.key.keysym.sym)
+                {
+                case SDLK_RIGHT:
+                    movingRight = false;
+                    break;
+                case SDLK_LEFT:
+                    movingLeft = false;
+                    break;
+                case SDLK_UP:
+                    movingUp = false;
+                    break;
+                case SDLK_DOWN:
+                    movingDown = false;
+                    break;
+                }
+            }
         }
+
+        // SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+        // SDL_RenderClear(renderer);
+
+        // SDL_Surface *surface = TTF_RenderText_Blended(inter, "Sillicon Miner Station", {255, 255, 255, 255});
+        // SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+        // int textWidth = surface->w;
+        // int textHeight = surface->h;
+
+        // SDL_Rect textRect = {0, 0, textWidth, textHeight};
+
+        // SDL_FreeSurface(surface);
+
+        // SDL_RenderCopy(renderer, texture, NULL, &textRect);
+
+        // SDL_RenderPresent(renderer);
+
+        // continue;
 
         frames++;
 
@@ -140,20 +282,38 @@ int main(int argc, char **args)
             frames = 0;
         }
 
+        if (movingRight)
+        {
+            camera.x += PLAYER_SPEED * deltaTime;
+        }
+        if (movingLeft)
+        {
+            camera.x -= PLAYER_SPEED * deltaTime;
+        }
+        if (movingUp)
+        {
+            camera.y -= PLAYER_SPEED * deltaTime;
+        }
+        if (movingDown)
+        {
+            camera.y += PLAYER_SPEED * deltaTime;
+        }
+
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
 
         for (auto &station : stations)
         {
+            station->reevaluateTradeOffers();
             station->tick(deltaTime);
-            station->render();
+            station->render(camera);
         }
 
         for (auto &ship : ships)
         {
             ship->searchForTrade(stations);
             ship->tick(deltaTime);
-            ship->render(renderer);
+            ship->render(camera);
         }
 
         // std::vector<SDL_Vertex> shipVertices =
@@ -181,12 +341,16 @@ int main(int argc, char **args)
         // SDL_RenderCopy(renderer, stationTexture, NULL, &stationRect);
 
         SDL_RenderPresent(renderer);
+        // SDL_Delay(1000);
     }
 
-    // Destroy the window. This will also destroy the surface
+    SDL_DestroyTexture(shipTexture);
+    SDL_DestroyTexture(stationTexture);
+    SDL_DestroyRenderer(renderer);
+    TTF_CloseFont(inter);
+    TTF_Quit();
+    IMG_Quit();
     SDL_DestroyWindow(window);
-
-    // Quit SDL
     SDL_Quit();
 
     // End the program

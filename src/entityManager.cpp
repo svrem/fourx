@@ -70,3 +70,16 @@ void EntityManager::removeStation(std::shared_ptr<Station> station)
 {
     m_Stations.erase(std::remove(m_Stations.begin(), m_Stations.end(), station), m_Stations.end());
 }
+
+std::shared_ptr<Station> EntityManager::getStationById(int id)
+{
+    for (auto &station : m_Stations)
+    {
+        if (station->getId() == id)
+        {
+            return station;
+        }
+    }
+
+    return nullptr;
+}

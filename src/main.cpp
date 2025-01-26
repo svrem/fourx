@@ -14,6 +14,7 @@
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <boost/concept_check.hpp>
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
@@ -101,6 +102,8 @@ int main(int argc, char **args)
     entityManager->addShip(ship1);
     auto ship2 = std::make_shared<Ship>(vec2f(0, 0), 600, 100, 1.0, renderer);
     entityManager->addShip(ship2);
+    auto ship3 = std::make_shared<Ship>(vec2f(0, 0), 600, 100, 1.0, renderer);
+    entityManager->addShip(ship3);
     // // auto ship3 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
     // // ships.push_back(ship3);
     // // auto ship4 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
@@ -114,7 +117,7 @@ int main(int argc, char **args)
     // // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
     // // ships.push_back(ship8);
 
-    auto mining_station = std::make_shared<Station>(vec2f(300, 400), "Silicon Miner Station 1", entityManager, renderer, inter);
+    auto mining_station = std::make_shared<Station>(vec2f(1000, 1000), "Silicon Miner Station 1", entityManager, renderer, inter);
 
     struct ProductionModule siliconProduction = {};
     siliconProduction.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 100});
@@ -203,6 +206,8 @@ int main(int argc, char **args)
 
     Uint64 FPS_TIMER = SDL_GetPerformanceCounter();
     int frames = 0;
+
+    Uint64 lastTradeVolumeCheck = SDL_GetPerformanceCounter();
 
     while (!quit)
     {
@@ -318,44 +323,79 @@ int main(int argc, char **args)
             ship->render(camera);
         }
 
-        std::map<Ware, std::pair<int, int>> maxGlobalSellBuyOffersQuantities;
-
-        for (auto &station : entityManager->getStations())
+        struct MaxSellBuyOffersQuantities
         {
-            auto &sellOffers = station->getSellOffers();
+            int maxSellQuantity = 0;
+            int maxBuyQuantity = 0;
 
-            for (auto &sellOffer : sellOffers)
+            std::shared_ptr<Station> seller = nullptr;
+            std::shared_ptr<Station> buyer = nullptr;
+        };
+
+        // every 5 seconds
+        if (NOW - lastTradeVolumeCheck > SDL_GetPerformanceFrequency() * 5)
+        {
+            printf("Checking trade volume\n");
+            lastTradeVolumeCheck = SDL_GetPerformanceCounter();
+
+            std::map<Ware, MaxSellBuyOffersQuantities> maxGlobalSellBuyOffers;
+
+            for (auto station : entityManager->getStations())
             {
-                if (maxGlobalSellBuyOffersQuantities.find(sellOffer.first) == maxGlobalSellBuyOffersQuantities.end())
+                auto &sellOffers = station->getSellOffers();
+
+                for (auto &sellOffer : sellOffers)
                 {
-                    maxGlobalSellBuyOffersQuantities[sellOffer.first] = {0, sellOffer.second.quantity};
+                    if (maxGlobalSellBuyOffers.find(sellOffer.first) == maxGlobalSellBuyOffers.end())
+                    {
+                        MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{sellOffer.second.quantity, 0, station, nullptr};
+
+                        maxGlobalSellBuyOffers[sellOffer.first] = maxSellBuyOffersQuantities;
+                        continue;
+                    }
+
+                    if (sellOffer.second.quantity > maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity)
+                    {
+                        maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity = sellOffer.second.quantity;
+                        maxGlobalSellBuyOffers[sellOffer.first].seller = station;
+                    }
                 }
 
-                if (sellOffer.second.quantity > maxGlobalSellBuyOffersQuantities[sellOffer.first].second)
+                auto &buyOffers = station->getBuyOffers();
+
+                for (auto buyOffer : buyOffers)
                 {
-                    maxGlobalSellBuyOffersQuantities[sellOffer.first] = {maxGlobalSellBuyOffersQuantities[sellOffer.first].first, sellOffer.second.quantity};
+                    if (maxGlobalSellBuyOffers.find(buyOffer.first) == maxGlobalSellBuyOffers.end())
+                    {
+                        MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{0, buyOffer.second.quantity, nullptr, station};
+
+                        maxGlobalSellBuyOffers[buyOffer.first] = maxSellBuyOffersQuantities;
+                        continue;
+                    }
+
+                    if (buyOffer.second.quantity > maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity)
+                    {
+                        maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity = buyOffer.second.quantity;
+                        maxGlobalSellBuyOffers[buyOffer.first].buyer = station;
+                    }
                 }
             }
 
-            auto &buyOffers = station->getBuyOffers();
+            auto &biggestTradeVolume = std::max(maxGlobalSellBuyOffers.begin(), maxGlobalSellBuyOffers.end(), [](const auto &a, const auto &b)
+                                                { return std::min(a->second.maxSellQuantity, a->second.maxBuyQuantity) < std::min(b->second.maxSellQuantity, b->second.maxBuyQuantity); });
 
-            for (auto &buyOffer : buyOffers)
+            int tradeVolume = std::min(biggestTradeVolume->second.maxSellQuantity, biggestTradeVolume->second.maxBuyQuantity);
+            if (tradeVolume > 500)
             {
-                if (maxGlobalSellBuyOffersQuantities.find(buyOffer.first) == maxGlobalSellBuyOffersQuantities.end())
+                // add one ship to the seller
+                if (biggestTradeVolume->second.seller)
                 {
-                    maxGlobalSellBuyOffersQuantities[buyOffer.first] = {buyOffer.second.quantity, 0};
-                }
-
-                if (buyOffer.second.quantity > maxGlobalSellBuyOffersQuantities[buyOffer.first].first)
-                {
-                    maxGlobalSellBuyOffersQuantities[buyOffer.first] = {buyOffer.second.quantity, maxGlobalSellBuyOffersQuantities[buyOffer.first].second};
+                    std::shared_ptr<Station> station = entityManager->getStationById(biggestTradeVolume->second.seller->getId());
+                    auto ship = std::make_shared<Ship>(biggestTradeVolume->second.seller->getPosition(), 600, 100, 1.0, renderer);
+                    entityManager->addShip(ship);
+                    station->addShip(ship);
                 }
             }
-        }
-
-        for (auto [ware, quantities] : maxGlobalSellBuyOffersQuantities)
-        {
-            cout << "Ware: " << wares::wareDetails.at(ware).name << "; Max Sell Quantity: " << quantities.first << "; Max Buy Quantity: " << quantities.second << endl;
         }
 
         SDL_RenderPresent(renderer);

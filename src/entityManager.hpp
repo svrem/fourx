@@ -17,6 +17,7 @@ public:
 
     void addStation(std::shared_ptr<Station> station);
     void removeStation(std::shared_ptr<Station> station);
+    std::shared_ptr<Station> getStationById(int id);
 
     const std::vector<std::shared_ptr<Ship>> &getShips() const
     {

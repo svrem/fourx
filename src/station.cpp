@@ -9,7 +9,7 @@
 #include <cassert>
 #include <set>
 
-Station::Station(vec2f position, std::string_view name, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), renderer(renderer)
+Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), renderer(renderer), entityManager(entityManager)
 {
     id = utils::generateId();
 
@@ -135,7 +135,7 @@ void Station::reevaluateTradeOffers()
         int level = inventoryLevel + buyReservations[ware];
         int maintenanceLevelDiff = level - maintenanceLevels.at(ware);
         wares::TradeType type = maintenanceLevelDiff >= 0 ? wares::TradeType::Sell : wares::TradeType::Buy;
-        float quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
+        int quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
 
         // if (quantity == 0)
         // continue;
@@ -168,7 +168,19 @@ void Station::tick(float dt)
 
         for (auto &outputWare : productionModule.outputWares)
         {
-            this->updateInventory(outputWare.ware, outputWare.quantity);
+            if (std::holds_alternative<wares::WareQuantity>(outputWare))
+            {
+                auto wareQuantity = std::get<wares::WareQuantity>(outputWare);
+                this->updateInventory(wareQuantity.ware, wareQuantity.quantity);
+                continue;
+            }
+            else if (std::holds_alternative<wares::ShipOrder>(outputWare))
+            {
+                auto shipOrder = std::get<wares::ShipOrder>(outputWare);
+                auto ship = std::make_shared<Ship>(this->m_Position, shipOrder.maxSpeed, shipOrder.cargoCapacity, shipOrder.weaponAttack, renderer);
+
+                continue;
+            }
         }
 
         productionModule.current_cycle_time -= productionModule.cycle_time;
@@ -180,7 +192,7 @@ void Station::tick(float dt)
     }
 }
 
-void Station::updateTradeOffer(wares::TradeType type, Ware ware, float quantity, float priceChangePercentage)
+void Station::updateTradeOffer(wares::TradeType type, Ware ware, int quantity, float priceChangePercentage)
 {
     bool hasSellOffer = this->sellOffers.find(ware) != this->sellOffers.end();
     bool hasBuyOffer = this->buyOffers.find(ware) != this->buyOffers.end();
@@ -253,7 +265,7 @@ void Station::setMaintenanceLevel(Ware ware, int level)
 // Accepts a trade offer for a specific ware, in this case, the TradeType should be of the offer
 // that's being accepted (i.e. if the client is buying, the TradeType should be Sell, and vice versa)
 // Throws an exception if the trade is invalid (e.g. not enough inventory to sell).
-void Station::acceptTrade(wares::TradeType type, Ware ware, float quantity)
+void Station::acceptTrade(wares::TradeType type, Ware ware, int quantity)
 {
     if (type == wares::TradeType::Sell)
     {
@@ -282,7 +294,7 @@ void Station::acceptTrade(wares::TradeType type, Ware ware, float quantity)
 
 // Transfers wares between the station and a ship. The quantity should be positive if the ship is buying,
 // and negative if the ship is selling. Throws an exception if the trade is invalid (e.g. not enough inventory to sell).
-void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity)
+void Station::transferWares(std::shared_ptr<Ship> ship, Ware ware, int quantity)
 {
     if (sellReservations[ware] < quantity)
     {

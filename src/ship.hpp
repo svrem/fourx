@@ -15,18 +15,38 @@
 using wares::Ware;
 
 class Station;
+class EntityManager;
 
 class Ship : public std::enable_shared_from_this<Ship>
 {
 public:
-    Ship(vec2f m_Position, float max_speed, float cargoCapacity, SDL_Renderer *renderer);
+    Ship(vec2f m_Position, float max_speed, float cargoCapacity, float weaponAttack, SDL_Renderer *renderer);
 
     void claim(std::shared_ptr<Station> station);
     void dock(std::shared_ptr<Station> station);
 
+    void setManager(std::shared_ptr<EntityManager> manager);
+
     void searchForTrade(const std::vector<std::shared_ptr<Station>> &stations);
 
     void addWare(Ware ware, int quantity);
+
+    void addOrder(ShipOrder order);
+    void executeNextOrder();
+
+    // NOOOO
+    void intercept(std::shared_ptr<Ship> target, float dt);
+
+    void doDamage(float damage);
+    // {
+    // hullHealth -= damage;
+
+    // if (hullHealth <= 0)
+    // {
+    //     printf("Ship %d destroyed\n", id);
+    //     this->m_Manager->removeShip(this->shared_from_this());
+    // }
+    // }
 
     const int getId() const
     {
@@ -38,6 +58,21 @@ public:
         return cargoCapacity;
     }
 
+    const vec2f getPosition() const
+    {
+        return m_Position;
+    }
+
+    const float getDirection() const
+    {
+        return m_CurrentDirection;
+    }
+
+    const float getHullHealth() const
+    {
+        return hullHealth;
+    }
+
 private:
     int id;
 
@@ -46,14 +81,19 @@ private:
     std::shared_ptr<Station> targetStation = nullptr;
 
     std::vector<ShipOrder> m_Orders;
+    std::shared_ptr<EntityManager> m_Manager;
 
     vec2f m_Position;
+    float m_CurrentDirection;
     std::optional<vec2f> m_Target;
 
     SDL_Renderer *m_Renderer;
 
     const float maxSpeed;
-    const float cargoCapacity;
+    const int cargoCapacity;
+    const float weaponAttack;
+
+    float hullHealth = 100.0f;
 
     std::map<Ware, int> m_Cargo;
 
@@ -62,8 +102,7 @@ private:
     void setTarget(vec2f target);
     void setTarget(std::shared_ptr<Station> station);
 
-    void addOrder(ShipOrder order);
-    void executeNextOrder();
+    void attack(std::shared_ptr<Ship> target);
 
 public:
     void render(vec2f camera);

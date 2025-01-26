@@ -16,13 +16,14 @@
 #include <string>
 #include <memory>
 #include <stdexcept>
+#include <variant>
 
 using wares::Ware;
 
 struct ProductionModule
 {
     std::vector<wares::WareQuantity> inputWares;
-    std::vector<wares::WareQuantity> outputWares;
+    std::vector<std::variant<wares::WareQuantity, wares::ShipOrder>> outputWares;
 
     bool halted = true;
 
@@ -31,23 +32,24 @@ struct ProductionModule
 };
 
 class Ship;
+class EntityManager;
 
 class Station : public std::enable_shared_from_this<Station>
 {
 public:
-    Station(vec2f position, std::string_view name, SDL_Renderer *renderer, TTF_Font *font);
+    Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font);
 
     void addShip(std::shared_ptr<Ship> ship);
     void removeShip(int ship_id);
 
     void addProductionModule(ProductionModule module);
 
-    void acceptTrade(wares::TradeType type, Ware ware, float quantity);
+    void acceptTrade(wares::TradeType type, Ware ware, int quantity);
 
     void setMaintenanceLevel(Ware ware, int level);
     void reevaluateTradeOffers();
 
-    void transferWares(std::shared_ptr<Ship> ship, Ware ware, float quantity);
+    void transferWares(std::shared_ptr<Ship> ship, Ware ware, int quantity);
 
     void requestDock(std::shared_ptr<Ship> ship);
     void undock(std::shared_ptr<Ship> ship);
@@ -84,6 +86,8 @@ private:
 
     vec2f m_Position;
 
+    std::shared_ptr<EntityManager> entityManager;
+
     std::map<Ware, wares::Offer> sellOffers;
     std::map<Ware, wares::Offer> buyOffers;
 
@@ -105,7 +109,7 @@ private:
 
     std::vector<std::shared_ptr<Ship>> dock_queue;
 
-    void updateTradeOffer(wares::TradeType type, wares::Ware ware, float quantity, float priceChangePercentage);
+    void updateTradeOffer(wares::TradeType type, wares::Ware ware, int quantity, float priceChangePercentage);
     void startNewProductionCycle(ProductionModule &productionModule);
 
     void updateInventory(Ware ware, int quantity);

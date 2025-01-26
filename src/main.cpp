@@ -3,6 +3,7 @@
 #include "ship.hpp"
 #include "station.hpp"
 #include "vec.hpp"
+#include "entityManager.hpp"
 
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -94,67 +95,65 @@ int main(int argc, char **args)
     SDL_Texture *shipTexture = IMG_LoadTexture(renderer, "assets/ship.png");
     SDL_Texture *stationTexture = IMG_LoadTexture(renderer, "assets/station.png");
 
-    std::vector<std::shared_ptr<Station>>
-        stations;
-    std::vector<std::shared_ptr<Ship>> ships;
+    std::shared_ptr<EntityManager> entityManager = std::make_shared<EntityManager>();
 
-    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000, renderer);
-    ships.push_back(ship1);
-    auto ship2 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000, renderer);
-    ships.push_back(ship2);
-    // auto ship3 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship3);
-    // auto ship4 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship4);
-    // auto ship5 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship5);
-    // auto ship6 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship6);
-    // auto ship7 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship7);
-    // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
-    // ships.push_back(ship8);
+    auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 100, 1.0, renderer);
+    entityManager->addShip(ship1);
+    auto ship2 = std::make_shared<Ship>(vec2f(0, 0), 600, 100, 1.0, renderer);
+    entityManager->addShip(ship2);
+    // // auto ship3 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship3);
+    // // auto ship4 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship4);
+    // // auto ship5 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship5);
+    // // auto ship6 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship6);
+    // // auto ship7 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship7);
+    // // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
+    // // ships.push_back(ship8);
 
-    auto mining_station = std::make_shared<Station>(vec2f(300, 400), "Silicon Miner Station 1", renderer, inter);
+    auto mining_station = std::make_shared<Station>(vec2f(300, 400), "Silicon Miner Station 1", entityManager, renderer, inter);
 
     struct ProductionModule siliconProduction = {};
-    siliconProduction.outputWares.push_back({Ware::Silicon, 50});
+    siliconProduction.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 100});
     siliconProduction.cycle_time = 1;
     siliconProduction.halted = false;
 
     mining_station->addProductionModule(siliconProduction);
     mining_station->setMaintenanceLevel(Ware::Silicon, 0);
-    stations.push_back(mining_station);
-
-    auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
-
-    struct ProductionModule siliconProduction2 = {};
-    siliconProduction2.outputWares.push_back({Ware::Silicon, 50});
-    siliconProduction2.cycle_time = 1;
-    siliconProduction2.halted = false;
-
-    mining_station_2->addProductionModule(siliconProduction2);
-    mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
-
-    stations.push_back(mining_station_2);
+    entityManager->addStation(mining_station);
 
     // auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
 
     // struct ProductionModule siliconProduction2 = {};
-    // siliconProduction2.outputWares.push_back({Ware::Silicon, 10});
-    // siliconProduction2.cycle_time = 10;
+    // siliconProduction2.outputWares.push_back({Ware::Silicon, 50});
+    // siliconProduction2.cycle_time = 1;
     // siliconProduction2.halted = false;
 
-    // mining_station_2->addProductionModule(siliconProduction);
+    // mining_station_2->addProductionModule(siliconProduction2);
     // mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
-    // mining_station->addShip(ship2);
+
     // stations.push_back(mining_station_2);
 
-    auto production_station = std::make_shared<Station>(vec2f(150, 200), "Silicon Wafer Production 1", renderer, inter);
+    // // auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
+
+    // // struct ProductionModule siliconProduction2 = {};
+    // // siliconProduction2.outputWares.push_back({Ware::Silicon, 10});
+    // // siliconProduction2.cycle_time = 10;
+    // // siliconProduction2.halted = false;
+
+    // // mining_station_2->addProductionModule(siliconProduction);
+    // // mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
+    // // mining_station->addShip(ship2);
+    // // stations.push_back(mining_station_2);
+
+    auto production_station = std::make_shared<Station>(vec2f(150, 200), "Silicon Wafer Production 1", entityManager, renderer, inter);
 
     struct ProductionModule siliconWaferProduction = {};
     siliconWaferProduction.inputWares.push_back({Ware::Silicon, 50});
-    siliconWaferProduction.outputWares.push_back({Ware::SiliconWafers, 50});
+    siliconWaferProduction.outputWares.push_back(wares::WareQuantity{Ware::SiliconWafers, 50});
     siliconWaferProduction.cycle_time = 1;
 
     production_station->addProductionModule(siliconWaferProduction);
@@ -164,23 +163,26 @@ int main(int argc, char **args)
 
     production_station->addShip(ship1);
 
-    stations.push_back(production_station);
+    entityManager->addStation(production_station);
 
-    auto production_station_2 = std::make_shared<Station>(vec2f(800, 500), "Silicon Wafer Production 2", renderer, inter);
+    // auto production_station_2 = std::make_shared<Station>(vec2f(800, 500), "Silicon Wafer Production 2", renderer, inter);
 
-    struct ProductionModule siliconWaferProduction2 = {};
-    siliconWaferProduction2.inputWares.push_back({Ware::Silicon, 50});
-    siliconWaferProduction2.outputWares.push_back({Ware::SiliconWafers, 50});
-    siliconWaferProduction2.cycle_time = 1;
+    // struct ProductionModule siliconWaferProduction2 = {};
+    // siliconWaferProduction2.inputWares.push_back({Ware::Silicon, 50});
+    // siliconWaferProduction2.outputWares.push_back({Ware::SiliconWafers, 50});
+    // siliconWaferProduction2.cycle_time = 1;
 
-    production_station_2->addProductionModule(siliconWaferProduction2);
-    production_station_2->setMaintenanceLevel(Ware::Silicon, 1000);
-    // production_station_2->setMaintenanceLevel(Ware::SiliconWafers, 100);
-    production_station_2->reevaluateTradeOffers();
+    // production_station_2->addProductionModule(siliconWaferProduction2);
+    // production_station_2->setMaintenanceLevel(Ware::Silicon, 1000);
+    // // production_station_2->setMaintenanceLevel(Ware::SiliconWafers, 100);
+    // production_station_2->reevaluateTradeOffers();
 
-    production_station_2->addShip(ship2);
+    // production_station_2->addShip(ship2);
 
-    stations.push_back(production_station_2);
+    // stations.push_back(production_station_2);
+
+    // auto ship1 = std::make_shared<Ship>(vec2f(1500, 0), 100, 1000, 5, renderer);
+    // entityManager->addShip(ship1);
 
     // auto trade_station = std::make_shared<Station>(vec2f(500, 500), "Trade Station 1", renderer, inter);
 
@@ -302,43 +304,59 @@ int main(int argc, char **args)
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
 
-        for (auto &station : stations)
+        for (auto &station : entityManager->getStations())
         {
             station->reevaluateTradeOffers();
             station->tick(deltaTime);
             station->render(camera);
         }
 
-        for (auto &ship : ships)
+        for (auto &ship : entityManager->getShips())
         {
-            ship->searchForTrade(stations);
+            ship->searchForTrade(entityManager->getStations());
             ship->tick(deltaTime);
             ship->render(camera);
         }
 
-        // std::vector<SDL_Vertex> shipVertices =
-        //     {
-        //         {
-        //             SDL_FPoint{400, 150},
-        //             SHIP_COLOR,
-        //             SDL_FPoint{0},
-        //         },
-        //         {
-        //             SDL_FPoint{406, 162},
-        //             SHIP_COLOR,
-        //             SDL_FPoint{0},
-        //         },
-        //         {
-        //             SDL_FPoint{394, 162},
-        //             SHIP_COLOR,
-        //             SDL_FPoint{0},
-        //         },
-        //     };
+        std::map<Ware, std::pair<int, int>> maxGlobalSellBuyOffersQuantities;
 
-        // SDL_RenderGeometry(renderer, NULL, shipVertices.data(), shipVertices.size(), NULL, 0);
+        for (auto &station : entityManager->getStations())
+        {
+            auto &sellOffers = station->getSellOffers();
 
-        // SDL_RenderCopy(renderer, ship, NULL, &shipRect);
-        // SDL_RenderCopy(renderer, stationTexture, NULL, &stationRect);
+            for (auto &sellOffer : sellOffers)
+            {
+                if (maxGlobalSellBuyOffersQuantities.find(sellOffer.first) == maxGlobalSellBuyOffersQuantities.end())
+                {
+                    maxGlobalSellBuyOffersQuantities[sellOffer.first] = {0, sellOffer.second.quantity};
+                }
+
+                if (sellOffer.second.quantity > maxGlobalSellBuyOffersQuantities[sellOffer.first].second)
+                {
+                    maxGlobalSellBuyOffersQuantities[sellOffer.first] = {maxGlobalSellBuyOffersQuantities[sellOffer.first].first, sellOffer.second.quantity};
+                }
+            }
+
+            auto &buyOffers = station->getBuyOffers();
+
+            for (auto &buyOffer : buyOffers)
+            {
+                if (maxGlobalSellBuyOffersQuantities.find(buyOffer.first) == maxGlobalSellBuyOffersQuantities.end())
+                {
+                    maxGlobalSellBuyOffersQuantities[buyOffer.first] = {buyOffer.second.quantity, 0};
+                }
+
+                if (buyOffer.second.quantity > maxGlobalSellBuyOffersQuantities[buyOffer.first].first)
+                {
+                    maxGlobalSellBuyOffersQuantities[buyOffer.first] = {buyOffer.second.quantity, maxGlobalSellBuyOffersQuantities[buyOffer.first].second};
+                }
+            }
+        }
+
+        for (auto [ware, quantities] : maxGlobalSellBuyOffersQuantities)
+        {
+            cout << "Ware: " << wares::wareDetails.at(ware).name << "; Max Sell Quantity: " << quantities.first << "; Max Buy Quantity: " << quantities.second << endl;
+        }
 
         SDL_RenderPresent(renderer);
         // SDL_Delay(1000);

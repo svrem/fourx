@@ -20,14 +20,19 @@ namespace orders
         std::shared_ptr<Station> station;
         wares::TradeType type;
         wares::Ware ware;
-        float quantity;
+        int quantity;
     };
 
     struct Undock
     {
     };
 
+    struct MoveToPosition
+    {
+        vec2f position;
+    };
+
 }
 
-typedef std::variant<orders::DockAtStation, orders::TradeWithStation, orders::Undock>
+typedef std::variant<orders::DockAtStation, orders::TradeWithStation, orders::Undock, orders::MoveToPosition>
     ShipOrder;

@@ -2,6 +2,9 @@
 
 #include <map>
 #include <string>
+#include <memory>
+
+class Station;
 
 namespace wares
 {
@@ -40,12 +43,20 @@ namespace wares
     struct Offer
     {
         float price;
-        float quantity;
+        int quantity;
     };
 
     struct WareQuantity
     {
         Ware ware;
         int quantity;
+    };
+
+    struct ShipOrder
+    {
+        std::shared_ptr<Station> station;
+        float maxSpeed;
+        float cargoCapacity;
+        float weaponAttack;
     };
 }

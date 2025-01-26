@@ -1,4 +1,10 @@
 #include "ship.hpp"
+#include "station.hpp"
+#include "vec.hpp"
+#include "utils.hpp"
+#include "wares.hpp"
+#include "orders.hpp"
+#include "entityManager.hpp"
 
 #include "spdlog/spdlog.h"
 
@@ -6,7 +12,7 @@
 #include <iostream>
 #include <random>
 
-Ship::Ship(vec2f m_Position, float maxSpeed, float cargoCapacity, SDL_Renderer *renderer) : m_Position(m_Position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity), m_Renderer(renderer)
+Ship::Ship(vec2f m_Position, float maxSpeed, float cargoCapacity, float weaponAttack, SDL_Renderer *renderer) : m_Position(m_Position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity), weaponAttack(weaponAttack), m_Renderer(renderer)
 {
     this->id = utils::generateId();
 }
@@ -26,6 +32,11 @@ void Ship::dock(std::shared_ptr<Station> station)
 void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
 {
     if (this->m_Orders.size() > 0)
+    {
+        return;
+    }
+
+    if (this->owner == nullptr)
     {
         return;
     }
@@ -98,7 +109,8 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
 
         if (type == wares::TradeType::Buy)
         {
-            float quantity = std::min(sellOffersOwner[ware].quantity, buyOffersStation[ware].quantity);
+            int quantity = std::min(sellOffersOwner[ware].quantity, buyOffersStation[ware].quantity);
+            quantity = std::min(quantity, this->cargoCapacity - this->m_Cargo[ware]);
 
             this->owner->acceptTrade(wares::TradeType::Sell, ware, quantity);
             station->acceptTrade(wares::TradeType::Buy, ware, quantity);
@@ -125,7 +137,8 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
         }
         else if (type == wares::TradeType::Sell)
         {
-            float quantity = std::min(buyOffersOwner[ware].quantity, sellOffersStation[ware].quantity);
+            int quantity = std::min(buyOffersOwner[ware].quantity, sellOffersStation[ware].quantity);
+            quantity = std::min(quantity, this->cargoCapacity - this->m_Cargo[ware]);
 
             this->owner->acceptTrade(wares::TradeType::Buy, ware, quantity);
             station->acceptTrade(wares::TradeType::Sell, ware, quantity);
@@ -220,6 +233,17 @@ void Ship::executeNextOrder()
         spdlog::debug("ShipOrder: Undocking");
         this->undock();
     }
+    else if (std::holds_alternative<orders::MoveToPosition>(order))
+    {
+        spdlog::debug("ShipOrder: Moving to position");
+        auto moveOrder = std::get<orders::MoveToPosition>(order);
+
+        this->setTarget(moveOrder.position);
+    }
+    else
+    {
+        spdlog::error("Unknown order type");
+    }
 }
 
 void Ship::addWare(Ware ware, int quantity)
@@ -309,11 +333,92 @@ void Ship::tick(float dt)
     }
 
     float alpha = atan2(deltaY, deltaX);
+    this->m_CurrentDirection = alpha;
 
     float x = this->m_Position.x + this->maxSpeed * dt * cos(alpha);
     float y = this->m_Position.y + this->maxSpeed * dt * sin(alpha);
 
     this->m_Position = vec2f(x, y);
+}
+
+void Ship::attack(std::shared_ptr<Ship> target)
+{
+    while (target->getHullHealth() > 0 && this->getHullHealth() > 0)
+    {
+        if (utils::gen() % 2 == 0)
+        {
+            printf("Ship %d attacking ship %d\n", this->id, target->id);
+            target->doDamage(this->weaponAttack);
+        }
+        else
+        {
+            printf("Ship %d attacking ship %d\n", target->id, this->id);
+            this->doDamage(target->weaponAttack);
+        }
+    }
+}
+
+void Ship::setManager(std::shared_ptr<EntityManager> manager)
+{
+    this->m_Manager = manager;
+}
+
+void Ship::doDamage(float damage)
+{
+    this->hullHealth -= damage;
+
+    if (this->hullHealth <= 0)
+    {
+        spdlog::info("Ship {} destroyed", this->id);
+        this->m_Manager->removeShip(this->shared_from_this());
+    }
+}
+
+void Ship::intercept(std::shared_ptr<Ship> target, float dt)
+{
+    vec2f targetPos = target->m_Position;
+
+    float partialFutureTargetPosX = target->maxSpeed * cos(target->m_CurrentDirection);
+    float partialFutureTargetPosY = target->maxSpeed * sin(target->m_CurrentDirection);
+
+    float futureTargetPosX = targetPos.x + partialFutureTargetPosX * dt;
+    float futureTargetPosY = targetPos.y + partialFutureTargetPosY * dt;
+
+    float deltaX = futureTargetPosX - this->m_Position.x;
+    float deltaY = futureTargetPosY - this->m_Position.y;
+
+    float distance = sqrt(deltaX * deltaX + deltaY * deltaY) - 5;
+
+    if (distance < this->maxSpeed * dt)
+    {
+        this->attack(target);
+        return;
+    }
+
+    float sampleT = 0.01;
+    float t = 0.0;
+
+    while (true)
+    {
+        float futureTargetPosX = targetPos.x + partialFutureTargetPosX * t;
+        float futureTargetPosY = targetPos.y + partialFutureTargetPosY * t;
+
+        float deltaX = futureTargetPosX - this->m_Position.x;
+        float deltaY = futureTargetPosY - this->m_Position.y;
+
+        float distance = sqrt(deltaX * deltaX + deltaY * deltaY);
+        float timeToIntercept = distance / this->maxSpeed;
+
+        if (timeToIntercept <= t)
+        {
+            this->setTarget(vec2f(futureTargetPosX, futureTargetPosY));
+            break;
+        }
+        else
+        {
+            t += timeToIntercept * 0.2;
+        }
+    }
 }
 
 void Ship::render(vec2f camera)
@@ -333,4 +438,15 @@ void Ship::render(vec2f camera)
 
     SDL_SetRenderDrawColor(m_Renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
     SDL_RenderFillRect(m_Renderer, &dest);
+
+    static const int maxHealth = 100;
+    static const int maxHealthBarWidth = 20;
+    SDL_Rect healthBar;
+    healthBar.x = position.x - maxHealthBarWidth / 2;
+    healthBar.y = position.y + 15;
+    healthBar.w = this->hullHealth / 100 * maxHealthBarWidth;
+    healthBar.h = 5;
+
+    SDL_SetRenderDrawColor(m_Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+    SDL_RenderFillRect(m_Renderer, &healthBar);
 }

@@ -49,6 +49,7 @@
 #include "entityManager.hpp"
 #include "ship.hpp"
 #include "station.hpp"
+#include "warfStation.hpp"
 
 void EntityManager::addShip(std::shared_ptr<Ship> ship)
 {
@@ -69,6 +70,18 @@ void EntityManager::addStation(std::shared_ptr<Station> station)
 void EntityManager::removeStation(std::shared_ptr<Station> station)
 {
     m_Stations.erase(std::remove(m_Stations.begin(), m_Stations.end(), station), m_Stations.end());
+}
+
+void EntityManager::addWarfStation(std::shared_ptr<WarfStation> warfStation)
+{
+    m_WarfStations.push_back(warfStation);
+    this->addStation(warfStation);
+}
+
+void EntityManager::removeWarfStation(std::shared_ptr<WarfStation> warfStation)
+{
+    m_WarfStations.erase(std::remove(m_WarfStations.begin(), m_WarfStations.end(), warfStation), m_WarfStations.end());
+    this->removeStation(warfStation);
 }
 
 std::shared_ptr<Station> EntityManager::getStationById(int id)

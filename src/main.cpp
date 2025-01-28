@@ -4,6 +4,7 @@
 #include "vec.hpp"
 #include "entityManager.hpp"
 #include "productionStation.hpp"
+#include "warfStation.hpp"
 #include "station.hpp"
 
 #include <SDL2/SDL_image.h>
@@ -162,12 +163,21 @@ int main(int argc, char **args)
 
     production_station->addProductionModule(siliconWaferProduction);
     production_station->setMaintenanceLevel(Ware::Silicon, 1000);
-    // production_station->setMaintenanceLevel(Ware::SiliconWafers, 100);
+    production_station->setMaintenanceLevel(Ware::SiliconWafers, 100);
     production_station->reevaluateTradeOffers();
 
     production_station->addShip(ship1);
 
     entityManager->addStation(production_station);
+
+    auto warf_station = std::make_shared<WarfStation>(vec2f(500, 500), "Warf Station 1", entityManager, renderer, inter);
+
+    warf_station->setMaintenanceLevel(Ware::SiliconWafers, 1000);
+    warf_station->reevaluateTradeOffers();
+
+    warf_station->addShip(ship3);
+
+    entityManager->addWarfStation(warf_station);
 
     // auto production_station_2 = std::make_shared<Station>(vec2f(800, 500), "Silicon Wafer Production 2", renderer, inter);
 
@@ -391,10 +401,17 @@ int main(int argc, char **args)
                 // add one ship to the seller
                 if (biggestTradeVolume->second.seller)
                 {
-                    std::shared_ptr<Station> station = entityManager->getStationById(biggestTradeVolume->second.seller->getId());
-                    auto ship = std::make_shared<Ship>(biggestTradeVolume->second.seller->getPosition(), 600, 100, 1.0, renderer);
-                    entityManager->addShip(ship);
-                    station->addShip(ship);
+                    // std::shared_ptr<Station> station = entityManager->getStationById(biggestTradeVolume->second.seller->getId());
+                    // auto ship = std::make_shared<Ship>(biggestTradeVolume->second.seller->getPosition(), 600, 100, 1.0, renderer);
+                    // entityManager->addShip(ship);
+                    // station->addShip(ship);
+
+                    ShipConstructionOrder order;
+                    order.cargoCapacity = 100;
+                    order.maxSpeed = 600;
+                    order.ownerID = biggestTradeVolume->second.seller->getId();
+                    order.timeToConstruct = 10;
+                    order.weaponAttack = 1.0;
                 }
             }
         }

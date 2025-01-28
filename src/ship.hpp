@@ -20,7 +20,7 @@ class EntityManager;
 class Ship : public std::enable_shared_from_this<Ship>
 {
 public:
-    Ship(vec2f m_Position, float max_speed, float cargoCapacity, float weaponAttack, SDL_Renderer *renderer);
+    Ship(vec2f m_Position, float maxSpeed, float cargoCapacity, float weaponAttack, SDL_Renderer *renderer);
 
     void claim(std::shared_ptr<Station> station);
     void dock(std::shared_ptr<Station> station);

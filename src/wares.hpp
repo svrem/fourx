@@ -3,6 +3,7 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <array>
 
 class Station;
 
@@ -59,4 +60,7 @@ namespace wares
         float cargoCapacity;
         float weaponAttack;
     };
+
+    const std::array<WareQuantity, 1> shipConstructionCost = {
+        WareQuantity{SiliconWafers, 5}};
 }

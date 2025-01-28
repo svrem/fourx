@@ -9,17 +9,23 @@
 #include <cassert>
 #include <set>
 
-Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), renderer(renderer), entityManager(entityManager)
+Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), m_Renderer(renderer), entityManager(entityManager)
 {
     id = utils::generateId();
 
-    texture = IMG_LoadTexture(renderer, "assets/station.png");
+    m_Texture = IMG_LoadTexture(renderer, "assets/station.png");
 
     SDL_Surface *nameSurface = TTF_RenderText_Blended(font, name.data(), {255, 255, 255});
-    nameTexture = SDL_CreateTextureFromSurface(renderer, nameSurface);
-    nameTextWidth = nameSurface->w;
-    nameTextHeight = nameSurface->h;
+    m_NameTexture = SDL_CreateTextureFromSurface(renderer, nameSurface);
+    m_NameTextWidth = nameSurface->w;
+    m_NameTextHeight = nameSurface->h;
     SDL_FreeSurface(nameSurface);
+}
+
+Station::~Station()
+{
+    SDL_DestroyTexture(m_Texture);
+    SDL_DestroyTexture(m_NameTexture);
 }
 
 void Station::addShip(std::shared_ptr<Ship> ship)
@@ -54,16 +60,7 @@ void Station::updateInventory(Ware ware, int quantity)
 
     assert(inventory[ware] >= 0);
 
-    for (auto &productionModule : this->productionModules)
-    {
-        // if production module is halted, check if we can start a new cycle
-        if (productionModule.halted)
-        {
-            printf("Production module is halted\n");
-            startNewProductionCycle(productionModule);
-        }
-    }
-
+    this->postUpdateInventory();
     this->reevaluateTradeOffers();
 }
 
@@ -77,70 +74,6 @@ void Station::__debug_print_inventory() const
         std::cout << "Ware: " << details.name << "; Quantity: " << item.second << "\n";
     }
     std::cout << "\n===========================================" << std::endl;
-}
-
-void Station::startNewProductionCycle(ProductionModule &productionModule)
-{
-    productionModule.halted = false;
-    for (auto &inputWare : productionModule.inputWares)
-    {
-        if (inventory[inputWare.ware] < inputWare.quantity)
-        {
-            productionModule.halted = true;
-            break;
-        }
-    }
-
-    if (productionModule.halted)
-    {
-        // not enough input wares
-        productionModule.current_cycle_time = 0;
-        return;
-    }
-
-    for (auto &inputWare : productionModule.inputWares)
-    {
-        printf("Remainder of ware %d: %d\n", inputWare.ware, inventory[inputWare.ware] - inputWare.quantity);
-        this->updateInventory(inputWare.ware, -inputWare.quantity);
-    }
-}
-
-void Station::tick(float dt)
-{
-    for (auto &productionModule : this->productionModules)
-    {
-        if (productionModule.halted)
-            continue;
-
-        productionModule.current_cycle_time += dt;
-
-        if (productionModule.current_cycle_time < productionModule.cycle_time)
-            continue;
-
-        for (auto &outputWare : productionModule.outputWares)
-        {
-            if (std::holds_alternative<wares::WareQuantity>(outputWare))
-            {
-                auto wareQuantity = std::get<wares::WareQuantity>(outputWare);
-                this->updateInventory(wareQuantity.ware, wareQuantity.quantity);
-                continue;
-            }
-            else if (std::holds_alternative<wares::ShipOrder>(outputWare))
-            {
-                auto shipOrder = std::get<wares::ShipOrder>(outputWare);
-                auto ship = std::make_shared<Ship>(this->m_Position, shipOrder.maxSpeed, shipOrder.cargoCapacity, shipOrder.weaponAttack, renderer);
-
-                continue;
-            }
-        }
-
-        productionModule.current_cycle_time -= productionModule.cycle_time;
-
-        spdlog::info("Station {} produced wares in production module", id);
-
-        // start new cycle
-        startNewProductionCycle(productionModule);
-    }
 }
 
 void Station::updateTradeOffer(wares::TradeType type, Ware ware, int quantity, float priceChangePercentage)
@@ -259,6 +192,71 @@ void Station::undock(std::shared_ptr<Ship> ship)
     throw std::runtime_error("Ship not found");
 }
 
+// Reevaluates the trade offers for the station based on the current inventory levels
+// and the reservations made by ships.
+void Station::reevaluateTradeOffers()
+{
+    for (auto const &[ware, inventoryLevel] : inventory)
+    {
+        if (maintenanceLevels.find(ware) == maintenanceLevels.end())
+        {
+            // warning
+            // std::cerr << "Warning: Maintenance level for ware " << wares::wareDetails.at(ware).name << " has not been set.\n";
+            continue;
+        }
+        int level = inventoryLevel + buyReservations[ware];
+        int maintenanceLevelDiff = level - maintenanceLevels.at(ware);
+        wares::TradeType type = maintenanceLevelDiff >= 0 ? wares::TradeType::Sell : wares::TradeType::Buy;
+        int quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
+        // if (quantity == 0)
+        // continue;
+        // price change HIER!!! maintenance levels kunnen ook 0 zijn slimpie, dus division by zero
+        // float b = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : 1000 - maintenanceLevelDiff;
+        // float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
+        // float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(1000, PRICE_CHANGE_EXPONENT);
+        // float priceChangePercentage = a * pow(maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
+        float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(MAX_EXPECTED_PRODUCT_COUNT, PRICE_CHANGE_EXPONENT);
+        float priceChangePercentage = a * pow(-maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
+        priceChangePercentage = std::min(priceChangePercentage, static_cast<float>(MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE));
+        updateTradeOffer(type, ware, quantity, priceChangePercentage);
+    };
+}
+
+void Station::setMaintenanceLevel(Ware ware, int level)
+{
+    if (inventory.find(ware) == inventory.end())
+    {
+        inventory[ware] = 0;
+    }
+    maintenanceLevels[ware] = level;
+}
+// Accepts a trade offer for a specific ware, in this case, the TradeType should be of the offer
+// that's being accepted (i.e. if the client is buying, the TradeType should be Sell, and vice versa)
+// Throws an exception if the trade is invalid (e.g. not enough inventory to sell).
+void Station::acceptTrade(wares::TradeType type, Ware ware, int quantity)
+{
+    if (type == wares::TradeType::Sell)
+    {
+        if (inventory[ware] < quantity)
+            throw std::runtime_error("Not enough inventory to sell");
+        if (sellReservations.find(ware) == sellReservations.end())
+        {
+            sellReservations[ware] = 0;
+        }
+        sellReservations[ware] += quantity;
+        updateInventory(ware, -quantity);
+    }
+    else
+    {
+        if (buyReservations.find(ware) == buyReservations.end())
+        {
+            buyReservations[ware] = 0;
+        }
+        buyReservations[ware] += quantity;
+    }
+    reevaluateTradeOffers();
+}
+
 // SDL
 void Station::render(vec2f camera)
 {
@@ -270,15 +268,15 @@ void Station::render(vec2f camera)
     dest.w = 30;
     dest.h = 30;
 
-    SDL_RenderCopy(renderer, texture, NULL, &dest);
+    SDL_RenderCopy(m_Renderer, m_Texture, NULL, &dest);
 
     SDL_Rect nameDest;
-    nameDest.x = position.x - nameTextWidth / 2;
+    nameDest.x = position.x - m_NameTextHeight / 2;
     nameDest.y = position.y + 30;
-    nameDest.w = nameTextWidth;
-    nameDest.h = nameTextHeight;
+    nameDest.w = m_NameTextWidth;
+    nameDest.h = m_NameTextHeight;
 
-    SDL_RenderCopy(renderer, nameTexture, NULL, &nameDest);
+    SDL_RenderCopy(m_Renderer, m_NameTexture, NULL, &nameDest);
 
     // DEBUG
     if (buyOffers.size() > 0)
@@ -290,8 +288,8 @@ void Station::render(vec2f camera)
         priceRect.w = this->buyOffers[Ware::Silicon].price / 5.0 * 100.0;
         priceRect.h = 5;
 
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderFillRect(renderer, &priceRect);
+        SDL_SetRenderDrawColor(m_Renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
+        SDL_RenderFillRect(m_Renderer, &priceRect);
     }
 
     if (sellOffers.size() > 0)
@@ -303,7 +301,7 @@ void Station::render(vec2f camera)
         priceRect.w = this->sellOffers[Ware::Silicon].price / 5.0 * 100.0;
         priceRect.h = 5;
 
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderFillRect(renderer, &priceRect);
+        SDL_SetRenderDrawColor(m_Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+        SDL_RenderFillRect(m_Renderer, &priceRect);
     }
 }

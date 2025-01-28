@@ -20,17 +20,6 @@
 
 using wares::Ware;
 
-struct ProductionModule
-{
-    std::vector<wares::WareQuantity> inputWares;
-    std::vector<std::variant<wares::WareQuantity, wares::ShipOrder>> outputWares;
-
-    bool halted = true;
-
-    int cycle_time;
-    float current_cycle_time = 0;
-};
-
 class Ship;
 class EntityManager;
 
@@ -38,6 +27,9 @@ class Station : public std::enable_shared_from_this<Station>
 {
 public:
     Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font);
+    ~Station();
+
+    virtual void tick(float dt) = 0;
 
     void addShip(std::shared_ptr<Ship> ship);
     void removeShip(int ship_id);
@@ -51,8 +43,6 @@ public:
 
     void requestDock(std::shared_ptr<Ship> ship);
     void undock(std::shared_ptr<Ship> ship);
-
-    void tick(float dt);
 
     int getId() const
     {
@@ -77,8 +67,12 @@ public:
     void __debug_print_inventory() const;
 
 protected:
+    virtual void postUpdateInventory() = 0;
+
     int id;
     std::string_view name;
+
+    std::shared_ptr<EntityManager> m_Manager;
 
     float credits;
 
@@ -90,8 +84,6 @@ protected:
     std::map<Ware, wares::Offer> buyOffers;
 
     std::map<Ware, int> maintenanceLevels;
-
-    std::vector<ProductionModule> productionModules;
 
     std::map<Ware, int> inventory;
     // Virtual inventory keeping track of the wares that the station is planning to buy
@@ -108,7 +100,6 @@ protected:
     std::vector<std::shared_ptr<Ship>> dock_queue;
 
     void updateTradeOffer(wares::TradeType type, wares::Ware ware, int quantity, float priceChangePercentage);
-    void startNewProductionCycle(ProductionModule &productionModule);
 
     void updateInventory(Ware ware, int quantity);
 
@@ -116,9 +107,9 @@ protected:
 public:
     void render(vec2f camera);
 
-private:
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-    SDL_Texture *nameTexture;
-    int nameTextWidth, nameTextHeight;
+protected:
+    SDL_Renderer *m_Renderer;
+    SDL_Texture *m_Texture;
+    SDL_Texture *m_NameTexture;
+    int m_NameTextWidth, m_NameTextHeight;
 };

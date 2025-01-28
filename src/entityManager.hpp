@@ -5,6 +5,7 @@
 #include <algorithm>
 
 class Station;
+class WarfStation;
 class Ship;
 
 class EntityManager : public std::enable_shared_from_this<EntityManager>
@@ -17,6 +18,10 @@ public:
 
     void addStation(std::shared_ptr<Station> station);
     void removeStation(std::shared_ptr<Station> station);
+
+    void addWarfStation(std::shared_ptr<WarfStation> warfStation);
+    void removeWarfStation(std::shared_ptr<WarfStation> warfStation);
+
     std::shared_ptr<Station> getStationById(int id);
 
     const std::vector<std::shared_ptr<Ship>> &getShips() const
@@ -27,8 +32,13 @@ public:
     {
         return m_Stations;
     }
+    const std::vector<std::shared_ptr<WarfStation>> &getWarfStations() const
+    {
+        return m_WarfStations;
+    }
 
 private:
     std::vector<std::shared_ptr<Ship>> m_Ships;
     std::vector<std::shared_ptr<Station>> m_Stations;
+    std::vector<std::shared_ptr<WarfStation>> m_WarfStations;
 };

@@ -78,7 +78,10 @@ list(APPEND CMAKE_PREFIX_PATH ${SDL2_ttf_PATH})
 
 # Specify source files explicitly for better maintenance
 # Add the executable
-add_executable(fourx src/utils.cpp src/entityManager.cpp src/station.cpp src/productionStation.cpp src/ship.cpp src/main.cpp)
+file(GLOB SOURCES "src/*.cpp" "src/*.hpp")
+
+
+add_executable(fourx ${SOURCES})
 
 # Link spdlog
 target_link_libraries(fourx PRIVATE spdlog::spdlog)
@@ -93,6 +96,8 @@ endif()
 find_package(SDL2 REQUIRED CONFIG)
 find_package(SDL2_image REQUIRED)
 find_package(SDL2_ttf REQUIRED)
+
+# Add the executable
 
 # Include SDL2 directories and link libraries
 # target_link_libraries(fourx PRIVATE ${SDL2_LIBRARIES} ${SDL2IMAGE_LIBRARIES})

@@ -77,10 +77,8 @@ FetchContent_MakeAvailable(SDL2_ttf)
 list(APPEND CMAKE_PREFIX_PATH ${SDL2_ttf_PATH})
 
 # Specify source files explicitly for better maintenance
-file (GLOB SOURCES "src/*.cpp" "src/*.hpp")
-
 # Add the executable
-add_executable(fourx ${SOURCES})
+add_executable(fourx src/utils.cpp src/entityManager.cpp src/station.cpp src/productionStation.cpp src/ship.cpp src/main.cpp)
 
 # Link spdlog
 target_link_libraries(fourx PRIVATE spdlog::spdlog)

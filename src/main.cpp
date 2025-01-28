@@ -1,9 +1,10 @@
 
 
 #include "ship.hpp"
-#include "station.hpp"
 #include "vec.hpp"
 #include "entityManager.hpp"
+#include "productionStation.hpp"
+#include "station.hpp"
 
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -117,7 +118,7 @@ int main(int argc, char **args)
     // // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
     // // ships.push_back(ship8);
 
-    auto mining_station = std::make_shared<Station>(vec2f(1000, 1000), "Silicon Miner Station 1", entityManager, renderer, inter);
+    auto mining_station = std::make_shared<ProductionStation>(vec2f(1000, 1000), "Silicon Miner Station 1", entityManager, renderer, inter);
 
     struct ProductionModule siliconProduction = {};
     siliconProduction.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 100});
@@ -152,7 +153,7 @@ int main(int argc, char **args)
     // // mining_station->addShip(ship2);
     // // stations.push_back(mining_station_2);
 
-    auto production_station = std::make_shared<Station>(vec2f(150, 200), "Silicon Wafer Production 1", entityManager, renderer, inter);
+    auto production_station = std::make_shared<ProductionStation>(vec2f(150, 200), "Silicon Wafer Production 1", entityManager, renderer, inter);
 
     struct ProductionModule siliconWaferProduction = {};
     siliconWaferProduction.inputWares.push_back({Ware::Silicon, 50});

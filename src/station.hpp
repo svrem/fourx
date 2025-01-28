@@ -42,8 +42,6 @@ public:
     void addShip(std::shared_ptr<Ship> ship);
     void removeShip(int ship_id);
 
-    void addProductionModule(ProductionModule module);
-
     void acceptTrade(wares::TradeType type, Ware ware, int quantity);
 
     void setMaintenanceLevel(Ware ware, int level);
@@ -78,7 +76,7 @@ public:
 
     void __debug_print_inventory() const;
 
-private:
+protected:
     int id;
     std::string_view name;
 

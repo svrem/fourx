@@ -44,19 +44,6 @@ void Station::removeShip(int ship_id)
     throw std::runtime_error("Ship not found");
 }
 
-void Station::addProductionModule(ProductionModule module)
-{
-    productionModules.push_back(module);
-
-    for (auto &inputWare : module.inputWares)
-    {
-        if (inventory.find(inputWare.ware) == inventory.end())
-        {
-            inventory[inputWare.ware] = 0;
-        }
-    }
-}
-
 void Station::updateInventory(Ware ware, int quantity)
 {
     if (inventory.find(ware) == inventory.end())
@@ -116,42 +103,6 @@ void Station::startNewProductionCycle(ProductionModule &productionModule)
         printf("Remainder of ware %d: %d\n", inputWare.ware, inventory[inputWare.ware] - inputWare.quantity);
         this->updateInventory(inputWare.ware, -inputWare.quantity);
     }
-}
-
-// Reevaluates the trade offers for the station based on the current inventory levels
-// and the reservations made by ships.
-void Station::reevaluateTradeOffers()
-{
-    for (auto const &[ware, inventoryLevel] : inventory)
-    {
-        if (maintenanceLevels.find(ware) == maintenanceLevels.end())
-        {
-            // warning
-            // std::cerr << "Warning: Maintenance level for ware " << wares::wareDetails.at(ware).name << " has not been set.\n";
-
-            continue;
-        }
-
-        int level = inventoryLevel + buyReservations[ware];
-        int maintenanceLevelDiff = level - maintenanceLevels.at(ware);
-        wares::TradeType type = maintenanceLevelDiff >= 0 ? wares::TradeType::Sell : wares::TradeType::Buy;
-        int quantity = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : -maintenanceLevelDiff;
-
-        // if (quantity == 0)
-        // continue;
-
-        // price change HIER!!! maintenance levels kunnen ook 0 zijn slimpie, dus division by zero
-        // float b = maintenanceLevelDiff > 0 ? maintenanceLevelDiff : 1000 - maintenanceLevelDiff;
-        // float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
-        // float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(1000, PRICE_CHANGE_EXPONENT);
-        // float priceChangePercentage = a * pow(maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
-
-        float a = MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE / pow(MAX_EXPECTED_PRODUCT_COUNT, PRICE_CHANGE_EXPONENT);
-        float priceChangePercentage = a * pow(-maintenanceLevelDiff, PRICE_CHANGE_EXPONENT);
-        priceChangePercentage = std::min(priceChangePercentage, static_cast<float>(MAX_ALLOWED_PRICE_CHANGE_PERCENTAGE));
-
-        updateTradeOffer(type, ware, quantity, priceChangePercentage);
-    };
 }
 
 void Station::tick(float dt)
@@ -251,45 +202,6 @@ void Station::updateTradeOffer(wares::TradeType type, Ware ware, int quantity, f
 
     buyOffers[ware] = {price, quantity};
     sellOffers.erase(ware);
-}
-
-void Station::setMaintenanceLevel(Ware ware, int level)
-{
-    if (inventory.find(ware) == inventory.end())
-    {
-        inventory[ware] = 0;
-    }
-    maintenanceLevels[ware] = level;
-}
-
-// Accepts a trade offer for a specific ware, in this case, the TradeType should be of the offer
-// that's being accepted (i.e. if the client is buying, the TradeType should be Sell, and vice versa)
-// Throws an exception if the trade is invalid (e.g. not enough inventory to sell).
-void Station::acceptTrade(wares::TradeType type, Ware ware, int quantity)
-{
-    if (type == wares::TradeType::Sell)
-    {
-        if (inventory[ware] < quantity)
-            throw std::runtime_error("Not enough inventory to sell");
-
-        if (sellReservations.find(ware) == sellReservations.end())
-        {
-            sellReservations[ware] = 0;
-        }
-
-        sellReservations[ware] += quantity;
-        updateInventory(ware, -quantity);
-    }
-    else
-    {
-        if (buyReservations.find(ware) == buyReservations.end())
-        {
-            buyReservations[ware] = 0;
-        }
-
-        buyReservations[ware] += quantity;
-    }
-    reevaluateTradeOffers();
 }
 
 // Transfers wares between the station and a ship. The quantity should be positive if the ship is buying,

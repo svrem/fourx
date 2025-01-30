@@ -6,6 +6,7 @@
 #include "productionStation.hpp"
 #include "warfStation.hpp"
 #include "station.hpp"
+#include "ui.hpp"
 
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -23,10 +24,96 @@
 
 #define PLAYER_SPEED 500
 
-// You shouldn't really use this statement, but it's fine for small programs
-using namespace std;
-
 const SDL_Color SHIP_COLOR = {61, 120, 255, 255};
+
+struct MaxSellBuyOffersQuantities
+{
+    int maxSellQuantity = 0;
+    int maxBuyQuantity = 0;
+
+    std::shared_ptr<Station> seller = nullptr;
+    std::shared_ptr<Station> buyer = nullptr;
+};
+
+void shipPurchaseCheck(std::shared_ptr<EntityManager> entityManager, Uint64 &lastTradeVolumeCheck)
+{
+    printf("Checking trade volume\n");
+    lastTradeVolumeCheck = SDL_GetPerformanceCounter();
+
+    std::map<Ware, MaxSellBuyOffersQuantities> maxGlobalSellBuyOffers;
+
+    for (auto station : entityManager->getStations())
+    {
+        auto &sellOffers = station->getSellOffers();
+
+        for (auto &sellOffer : sellOffers)
+        {
+            if (maxGlobalSellBuyOffers.find(sellOffer.first) == maxGlobalSellBuyOffers.end())
+            {
+                MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{sellOffer.second.quantity, 0, station, nullptr};
+                maxGlobalSellBuyOffers[sellOffer.first] = maxSellBuyOffersQuantities;
+                continue;
+            }
+
+            if (sellOffer.second.quantity > maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity)
+            {
+                maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity = sellOffer.second.quantity;
+                maxGlobalSellBuyOffers[sellOffer.first].seller = station;
+            }
+        }
+
+        auto &buyOffers = station->getBuyOffers();
+
+        for (auto buyOffer : buyOffers)
+        {
+            if (maxGlobalSellBuyOffers.find(buyOffer.first) == maxGlobalSellBuyOffers.end())
+            {
+                MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{0, buyOffer.second.quantity, nullptr, station};
+
+                maxGlobalSellBuyOffers[buyOffer.first] = maxSellBuyOffersQuantities;
+                continue;
+            }
+
+            if (buyOffer.second.quantity > maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity)
+            {
+                maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity = buyOffer.second.quantity;
+                maxGlobalSellBuyOffers[buyOffer.first].buyer = station;
+            }
+        }
+    }
+
+    auto biggestTradeVolume = std::max_element(maxGlobalSellBuyOffers.begin(), maxGlobalSellBuyOffers.end(), [](const auto &a, const auto &b)
+                                               { return std::min(a.second.maxSellQuantity, a.second.maxBuyQuantity) < std::min(b.second.maxSellQuantity, b.second.maxBuyQuantity); });
+
+    int tradeVolume = std::min(biggestTradeVolume->second.maxSellQuantity, biggestTradeVolume->second.maxBuyQuantity);
+    if (tradeVolume > 500)
+    {
+        // add one ship to the seller
+        if (biggestTradeVolume->second.seller)
+        {
+            // std::shared_ptr<Station> station = entityManager->getStationById(biggestTradeVolume->second.seller->getId());
+            // auto ship = std::make_shared<Ship>(biggestTradeVolume->second.seller->getPosition(), 600, 100, 1.0, renderer);
+            // entityManager->addShip(ship);
+            // station->addShip(ship);
+
+            ShipConstructionOrder order;
+            order.cargoCapacity = 100;
+            order.maxSpeed = 600;
+            order.ownerID = biggestTradeVolume->second.seller->getId();
+            order.timeToConstruct = 10;
+            order.weaponAttack = 1.0;
+
+            auto &warfStations = entityManager->getWarfStations();
+
+            // DON'T DO THIS
+            if (!warfStations[0]->doesStationHaveAOrderInQueue(biggestTradeVolume->second.seller->getId()))
+            {
+                printf("Ordering ship for station %d\n", biggestTradeVolume->second.seller->getId());
+                warfStations[0]->orderShip(order);
+            }
+        }
+    }
+}
 
 // You must include the command line parameters for your main function to be recognized by SDL
 int main(int argc, char **args)
@@ -40,21 +127,21 @@ int main(int argc, char **args)
 
     if (TTF_Init() < 0)
     {
-        cout << "Error initializing TTF: " << SDL_GetError() << endl;
+        printf("TTF_Init: %s\n", TTF_GetError());
         return 1;
     }
 
     // Initialize SDL. SDL_Init will return -1 if it fails.
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
-        cout << "Error initializing SDL: " << SDL_GetError() << endl;
+        printf("SDL_Init failed: %s\n", SDL_GetError());
         // End the program
         return 1;
     }
 
     if (SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1") == SDL_FALSE)
     {
-        cout << "Warning: Linear texture filtering not enabled!" << endl;
+        printf("Warning: Linear texture filtering not enabled!");
         return 1;
     }
 
@@ -64,7 +151,7 @@ int main(int argc, char **args)
     // Make sure creating the window succeeded
     if (!window)
     {
-        cout << "Error creating window: " << SDL_GetError() << endl;
+        printf("Failed to create window: %s\n", SDL_GetError());
         // End the program
         return 1;
     }
@@ -74,7 +161,7 @@ int main(int argc, char **args)
 
     if (!renderer)
     {
-        cout << "Error creating renderer: " << SDL_GetError() << endl;
+        printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
         // End the program
         return 1;
     }
@@ -82,6 +169,14 @@ int main(int argc, char **args)
     IMG_Init(IMG_INIT_PNG);
 
     TTF_Font *inter = TTF_OpenFont("assets/ttf/Inter/Inter-VariableFont_opsz,wght.ttf", 16);
+
+    if (!inter)
+    {
+        printf("Failed to load font: %s\n", TTF_GetError());
+        // End the program
+        return 1;
+    }
+
     TTF_SetFontStyle(inter, TTF_STYLE_NORMAL);
     TTF_SetFontOutline(inter, 0);
     TTF_SetFontKerning(inter, 1);
@@ -90,15 +185,17 @@ int main(int argc, char **args)
 
     if (!inter)
     {
-        cout << "Error loading font: " << SDL_GetError() << endl;
+        printf("Failed to load font: %s\n", TTF_GetError());
         // End the program
         return 1;
     }
 
-    SDL_Texture *shipTexture = IMG_LoadTexture(renderer, "assets/ship.png");
+    SDL_Texture *
+        shipTexture = IMG_LoadTexture(renderer, "assets/ship.png");
     SDL_Texture *stationTexture = IMG_LoadTexture(renderer, "assets/station.png");
 
     std::shared_ptr<EntityManager> entityManager = std::make_shared<EntityManager>();
+    std::shared_ptr<UI> ui = std::make_shared<UI>(renderer, inter);
 
     auto ship1 = std::make_shared<Ship>(vec2f(0, 0), 600, 100, 1.0, renderer);
     entityManager->addShip(ship1);
@@ -119,16 +216,27 @@ int main(int argc, char **args)
     // // auto ship8 = std::make_shared<Ship>(vec2f(0, 0), 600, 1000000);
     // // ships.push_back(ship8);
 
-    auto mining_station = std::make_shared<ProductionStation>(vec2f(1000, 1000), "Silicon Miner Station 1", entityManager, renderer, inter);
+    auto mining_station = std::make_shared<ProductionStation>(vec2f(1000, 1000), "Silicon Miner Station 1", entityManager, ui, renderer, inter);
 
     struct ProductionModule siliconProduction = {};
-    siliconProduction.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 100});
+    siliconProduction.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 90});
     siliconProduction.cycle_time = 1;
     siliconProduction.halted = false;
 
     mining_station->addProductionModule(siliconProduction);
     mining_station->setMaintenanceLevel(Ware::Silicon, 0);
     entityManager->addStation(mining_station);
+
+    auto mining_station_2 = std::make_shared<ProductionStation>(vec2f(800, 700), "Silicon Miner Station 2", entityManager, ui, renderer, inter);
+
+    struct ProductionModule siliconProduction2 = {};
+    siliconProduction2.outputWares.push_back(wares::WareQuantity{Ware::Silicon, 90});
+    siliconProduction2.cycle_time = 1;
+    siliconProduction2.halted = false;
+
+    mining_station_2->addProductionModule(siliconProduction2);
+    mining_station_2->setMaintenanceLevel(Ware::Silicon, 0);
+    entityManager->addStation(mining_station_2);
 
     // auto mining_station_2 = std::make_shared<Station>(vec2f(800, 300), "Silicon Miner Station 2", renderer, inter);
 
@@ -154,10 +262,10 @@ int main(int argc, char **args)
     // // mining_station->addShip(ship2);
     // // stations.push_back(mining_station_2);
 
-    auto production_station = std::make_shared<ProductionStation>(vec2f(150, 200), "Silicon Wafer Production 1", entityManager, renderer, inter);
+    auto production_station = std::make_shared<ProductionStation>(vec2f(150, 200), "Silicon Wafer Production 1", entityManager, ui, renderer, inter);
 
     struct ProductionModule siliconWaferProduction = {};
-    siliconWaferProduction.inputWares.push_back({Ware::Silicon, 50});
+    siliconWaferProduction.inputWares.push_back({Ware::Silicon, 90});
     siliconWaferProduction.outputWares.push_back(wares::WareQuantity{Ware::SiliconWafers, 50});
     siliconWaferProduction.cycle_time = 1;
 
@@ -170,7 +278,7 @@ int main(int argc, char **args)
 
     entityManager->addStation(production_station);
 
-    auto warf_station = std::make_shared<WarfStation>(vec2f(500, 500), "Warf Station 1", entityManager, renderer, inter);
+    auto warf_station = std::make_shared<WarfStation>(vec2f(500, 400), "Warf Station 1", entityManager, ui, renderer, inter);
 
     warf_station->setMaintenanceLevel(Ware::SiliconWafers, 1000);
     warf_station->reevaluateTradeOffers();
@@ -179,21 +287,21 @@ int main(int argc, char **args)
 
     entityManager->addWarfStation(warf_station);
 
-    // auto production_station_2 = std::make_shared<Station>(vec2f(800, 500), "Silicon Wafer Production 2", renderer, inter);
+    auto production_station_2 = std::make_shared<ProductionStation>(vec2f(800, 500), "Silicon Wafer Production 2", entityManager, ui, renderer, inter);
 
-    // struct ProductionModule siliconWaferProduction2 = {};
-    // siliconWaferProduction2.inputWares.push_back({Ware::Silicon, 50});
-    // siliconWaferProduction2.outputWares.push_back({Ware::SiliconWafers, 50});
-    // siliconWaferProduction2.cycle_time = 1;
+    struct ProductionModule siliconWaferProduction2 = {};
+    siliconWaferProduction2.inputWares.push_back({Ware::Silicon, 90});
+    siliconWaferProduction2.outputWares.push_back(wares::WareQuantity{Ware::SiliconWafers, 50});
+    siliconWaferProduction2.cycle_time = 1;
 
-    // production_station_2->addProductionModule(siliconWaferProduction2);
-    // production_station_2->setMaintenanceLevel(Ware::Silicon, 1000);
-    // // production_station_2->setMaintenanceLevel(Ware::SiliconWafers, 100);
-    // production_station_2->reevaluateTradeOffers();
+    production_station_2->addProductionModule(siliconWaferProduction2);
+    production_station_2->setMaintenanceLevel(Ware::Silicon, 1000);
+    production_station_2->setMaintenanceLevel(Ware::SiliconWafers, 100);
+    production_station_2->reevaluateTradeOffers();
 
-    // production_station_2->addShip(ship2);
+    production_station_2->addShip(ship2);
 
-    // stations.push_back(production_station_2);
+    entityManager->addStation(production_station_2);
 
     // auto ship1 = std::make_shared<Ship>(vec2f(1500, 0), 100, 1000, 5, renderer);
     // entityManager->addShip(ship1);
@@ -264,25 +372,20 @@ int main(int argc, char **args)
                     break;
                 }
             }
+
+            if (event.type == SDL_MOUSEBUTTONUP)
+            {
+                for (auto &station : entityManager->getStations())
+                {
+                    station->deselect();
+                }
+
+                for (auto &station : entityManager->getStations())
+                {
+                    station->checkForAndHandleMouseClick(camera, event.button.x, event.button.y);
+                }
+            }
         }
-
-        // SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-        // SDL_RenderClear(renderer);
-
-        // SDL_Surface *surface = TTF_RenderText_Blended(inter, "Sillicon Miner Station", {255, 255, 255, 255});
-        // SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-        // int textWidth = surface->w;
-        // int textHeight = surface->h;
-
-        // SDL_Rect textRect = {0, 0, textWidth, textHeight};
-
-        // SDL_FreeSurface(surface);
-
-        // SDL_RenderCopy(renderer, texture, NULL, &textRect);
-
-        // SDL_RenderPresent(renderer);
-
-        // continue;
 
         frames++;
 
@@ -295,7 +398,7 @@ int main(int argc, char **args)
         if (NOW - FPS_TIMER > SDL_GetPerformanceFrequency())
         {
             float fps = frames / static_cast<float>(NOW - FPS_TIMER) * SDL_GetPerformanceFrequency();
-            cout << "FPS: " << fps << endl;
+            printf("FPS: %f\n", fps);
             FPS_TIMER = SDL_GetPerformanceCounter();
             frames = 0;
         }
@@ -334,87 +437,13 @@ int main(int argc, char **args)
             ship->render(camera);
         }
 
-        struct MaxSellBuyOffersQuantities
-        {
-            int maxSellQuantity = 0;
-            int maxBuyQuantity = 0;
-
-            std::shared_ptr<Station> seller = nullptr;
-            std::shared_ptr<Station> buyer = nullptr;
-        };
-
         // every 5 seconds
         if (NOW - lastTradeVolumeCheck > SDL_GetPerformanceFrequency() * 5)
         {
-            printf("Checking trade volume\n");
-            lastTradeVolumeCheck = SDL_GetPerformanceCounter();
-
-            std::map<Ware, MaxSellBuyOffersQuantities> maxGlobalSellBuyOffers;
-
-            for (auto station : entityManager->getStations())
-            {
-                auto &sellOffers = station->getSellOffers();
-
-                for (auto &sellOffer : sellOffers)
-                {
-                    if (maxGlobalSellBuyOffers.find(sellOffer.first) == maxGlobalSellBuyOffers.end())
-                    {
-                        MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{sellOffer.second.quantity, 0, station, nullptr};
-
-                        maxGlobalSellBuyOffers[sellOffer.first] = maxSellBuyOffersQuantities;
-                        continue;
-                    }
-
-                    if (sellOffer.second.quantity > maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity)
-                    {
-                        maxGlobalSellBuyOffers[sellOffer.first].maxSellQuantity = sellOffer.second.quantity;
-                        maxGlobalSellBuyOffers[sellOffer.first].seller = station;
-                    }
-                }
-
-                auto &buyOffers = station->getBuyOffers();
-
-                for (auto buyOffer : buyOffers)
-                {
-                    if (maxGlobalSellBuyOffers.find(buyOffer.first) == maxGlobalSellBuyOffers.end())
-                    {
-                        MaxSellBuyOffersQuantities maxSellBuyOffersQuantities{0, buyOffer.second.quantity, nullptr, station};
-
-                        maxGlobalSellBuyOffers[buyOffer.first] = maxSellBuyOffersQuantities;
-                        continue;
-                    }
-
-                    if (buyOffer.second.quantity > maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity)
-                    {
-                        maxGlobalSellBuyOffers[buyOffer.first].maxBuyQuantity = buyOffer.second.quantity;
-                        maxGlobalSellBuyOffers[buyOffer.first].buyer = station;
-                    }
-                }
-            }
-
-            auto &biggestTradeVolume = std::max(maxGlobalSellBuyOffers.begin(), maxGlobalSellBuyOffers.end(), [](const auto &a, const auto &b)
-                                                { return std::min(a->second.maxSellQuantity, a->second.maxBuyQuantity) < std::min(b->second.maxSellQuantity, b->second.maxBuyQuantity); });
-
-            int tradeVolume = std::min(biggestTradeVolume->second.maxSellQuantity, biggestTradeVolume->second.maxBuyQuantity);
-            if (tradeVolume > 500)
-            {
-                // add one ship to the seller
-                if (biggestTradeVolume->second.seller)
-                {
-                    // std::shared_ptr<Station> station = entityManager->getStationById(biggestTradeVolume->second.seller->getId());
-                    // auto ship = std::make_shared<Ship>(biggestTradeVolume->second.seller->getPosition(), 600, 100, 1.0, renderer);
-                    // entityManager->addShip(ship);
-                    // station->addShip(ship);
-
-                    ShipConstructionOrder order;
-                    order.cargoCapacity = 100;
-                    order.maxSpeed = 600;
-                    order.ownerID = biggestTradeVolume->second.seller->getId();
-                    order.timeToConstruct = 10;
-                    order.weaponAttack = 1.0;
-                }
-            }
+            shipPurchaseCheck(entityManager, lastTradeVolumeCheck);
         }
+
+        ui->render();
 
         SDL_RenderPresent(renderer);
         // SDL_Delay(1000);

@@ -22,11 +22,12 @@ using wares::Ware;
 
 class Ship;
 class EntityManager;
+class UI;
 
 class Station : public std::enable_shared_from_this<Station>
 {
 public:
-    Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font);
+    Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, std::shared_ptr<UI> ui, SDL_Renderer *renderer, TTF_Font *font);
     ~Station();
 
     virtual void tick(float dt) = 0;
@@ -43,6 +44,9 @@ public:
 
     void requestDock(std::shared_ptr<Ship> ship);
     void undock(std::shared_ptr<Ship> ship);
+
+    bool checkForAndHandleMouseClick(vec2f camera, Sint32 x, Sint32 y);
+    void deselect();
 
     int getId() const
     {
@@ -70,7 +74,9 @@ protected:
     virtual void postUpdateInventory() = 0;
 
     int id;
-    std::string_view name;
+    std::string name;
+
+    bool m_Selected = false;
 
     std::shared_ptr<EntityManager> m_Manager;
 
@@ -79,6 +85,7 @@ protected:
     vec2f m_Position;
 
     std::shared_ptr<EntityManager> entityManager;
+    std::shared_ptr<UI> m_UI;
 
     std::map<Ware, wares::Offer> sellOffers;
     std::map<Ware, wares::Offer> buyOffers;
@@ -102,6 +109,8 @@ protected:
     void updateTradeOffer(wares::TradeType type, wares::Ware ware, int quantity, float priceChangePercentage);
 
     void updateInventory(Ware ware, int quantity);
+
+    void updateUI();
 
     // SDL
 public:

@@ -16,6 +16,7 @@ struct ShipConstructionOrder
 
 class WarfStation : public Station
 {
+public:
     using Station::Station;
 
     void tick(float dt) override;

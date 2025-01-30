@@ -1,5 +1,6 @@
 #include "station.hpp"
 #include "config.hpp"
+#include "ui.hpp"
 
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_ttf.h"
@@ -9,7 +10,7 @@
 #include <cassert>
 #include <set>
 
-Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), m_Renderer(renderer), entityManager(entityManager)
+Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityManager> entityManager, std::shared_ptr<UI> ui, SDL_Renderer *renderer, TTF_Font *font) : m_Position(position), name(name), m_Renderer(renderer), m_Manager(entityManager), m_UI(ui)
 {
     id = utils::generateId();
 
@@ -62,6 +63,8 @@ void Station::updateInventory(Ware ware, int quantity)
 
     this->postUpdateInventory();
     this->reevaluateTradeOffers();
+
+    this->updateUI();
 }
 
 void Station::__debug_print_inventory() const
@@ -257,6 +260,70 @@ void Station::acceptTrade(wares::TradeType type, Ware ware, int quantity)
     reevaluateTradeOffers();
 }
 
+void Station::updateUI()
+{
+    if (!this->m_Selected)
+        return;
+
+    UISupport::DataDisplay dataDisplay;
+
+    dataDisplay.push_back({"Station", name});
+    dataDisplay.push_back({"Position", std::to_string((int)m_Position.x) + ", " + std::to_string((int)m_Position.y)});
+
+    for (auto &item : inventory)
+    {
+        auto details = wares::wareDetails.at(item.first);
+        if (details.name.empty())
+            continue;
+
+        dataDisplay.push_back({details.name, std::to_string(item.second)});
+    }
+
+    for (auto &item : sellOffers)
+    {
+        auto details = wares::wareDetails.at(item.first);
+        if (details.name.empty())
+            continue;
+
+        dataDisplay.push_back({details.name + " sell price", std::to_string(item.second.price)});
+        dataDisplay.push_back({details.name + " sell quantity", std::to_string(item.second.quantity)});
+    }
+
+    for (auto &item : buyOffers)
+    {
+        auto details = wares::wareDetails.at(item.first);
+        if (details.name.empty())
+            continue;
+
+        dataDisplay.push_back({details.name + " buy price", std::to_string(item.second.price)});
+        dataDisplay.push_back({details.name + " buy quantity", std::to_string(item.second.quantity)});
+    }
+
+    m_UI->setUIData({name, dataDisplay});
+}
+
+bool Station::checkForAndHandleMouseClick(vec2f camera, Sint32 x, Sint32 y)
+{
+    int x1 = x + camera.x;
+    int y1 = y + camera.y;
+
+    if (x1 >= m_Position.x - 15 && x1 <= m_Position.x + 15 && y1 >= m_Position.y - 15 && y1 <= m_Position.y + 15)
+    {
+        this->m_Selected = !this->m_Selected;
+        this->updateUI();
+
+        return true;
+    }
+
+    this->m_Selected = false;
+    return false;
+}
+
+void Station::deselect()
+{
+    this->m_Selected = false;
+}
+
 // SDL
 void Station::render(vec2f camera)
 {
@@ -278,30 +345,14 @@ void Station::render(vec2f camera)
 
     SDL_RenderCopy(m_Renderer, m_NameTexture, NULL, &nameDest);
 
-    // DEBUG
-    if (buyOffers.size() > 0)
+    if (m_Selected)
     {
-
-        SDL_Rect priceRect;
-        priceRect.x = position.x - 15;
-        priceRect.y = position.y - 30;
-        priceRect.w = this->buyOffers[Ware::Silicon].price / 5.0 * 100.0;
-        priceRect.h = 5;
-
-        SDL_SetRenderDrawColor(m_Renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderFillRect(m_Renderer, &priceRect);
-    }
-
-    if (sellOffers.size() > 0)
-    {
-
-        SDL_Rect priceRect;
-        priceRect.x = position.x - 15;
-        priceRect.y = position.y - 35;
-        priceRect.w = this->sellOffers[Ware::Silicon].price / 5.0 * 100.0;
-        priceRect.h = 5;
-
         SDL_SetRenderDrawColor(m_Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
-        SDL_RenderFillRect(m_Renderer, &priceRect);
     }
+    else
+    {
+        SDL_SetRenderDrawColor(m_Renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+    }
+
+    SDL_RenderDrawRect(m_Renderer, &dest);
 }

@@ -37,7 +37,6 @@ void ProductionStation::startNewProductionCycle(ProductionModule &productionModu
 
     for (auto &inputWare : productionModule.inputWares)
     {
-        printf("Remainder of ware %d: %d\n", inputWare.ware, inventory[inputWare.ware] - inputWare.quantity);
         this->updateInventory(inputWare.ware, -inputWare.quantity);
     }
 }
@@ -72,8 +71,6 @@ void ProductionStation::tick(float dt)
         }
 
         productionModule.current_cycle_time -= productionModule.cycle_time;
-
-        spdlog::info("Station {} produced wares in production module", id);
 
         // start new cycle
         startNewProductionCycle(productionModule);

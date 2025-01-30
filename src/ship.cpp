@@ -206,12 +206,10 @@ void Ship::executeNextOrder()
 
         if (tradeOrder.type == wares::TradeType::Buy)
         {
-            spdlog::info("Ship {} buying {} units of ware", this->id, tradeOrder.quantity);
             this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, tradeOrder.quantity);
         }
         else if (tradeOrder.type == wares::TradeType::Sell)
         {
-            spdlog::info("Ship {} selling {} units of ware", this->id, tradeOrder.quantity);
             this->dockedStation->transferWares(this->shared_from_this(), tradeOrder.ware, -tradeOrder.quantity);
         }
 
@@ -321,7 +319,6 @@ void Ship::tick(float dt)
 
         this->m_Target.reset();
 
-        printf("Requesting dock at station\n");
         if (this->targetStation != nullptr)
         {
             auto t = this->targetStation;

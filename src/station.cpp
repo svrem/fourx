@@ -16,6 +16,11 @@ Station::Station(vec2f position, std::string_view name, std::shared_ptr<EntityMa
 
     m_Texture = IMG_LoadTexture(renderer, "assets/station.png");
 
+    if (!font)
+    {
+        throw std::runtime_error("Failed to load font");
+    }
+
     SDL_Surface *nameSurface = TTF_RenderText_Blended(font, name.data(), {255, 255, 255});
     m_NameTexture = SDL_CreateTextureFromSurface(renderer, nameSurface);
     m_NameTextWidth = nameSurface->w;

@@ -27,7 +27,7 @@ public:
 
     void setManager(std::shared_ptr<EntityManager> manager);
 
-    void searchForTrade(const std::vector<std::shared_ptr<Station>> &stations);
+    void searchForTrade(const std::vector<std::shared_ptr<Station>> &stations, float dt);
 
     void addWare(Ware ware, int quantity);
 
@@ -93,6 +93,8 @@ private:
     const int cargoCapacity;
     const float weaponAttack;
 
+    float m_TimeUntilNextTradeCheck = 0.0f;
+
     float hullHealth = 100.0f;
 
     std::map<Ware, int> m_Cargo;
@@ -108,3 +110,11 @@ public:
     void render(vec2f camera);
     void tick(float dt);
 };
+
+namespace ShipPreset
+{
+    inline std::shared_ptr<Ship> createFreighter(vec2f position, SDL_Renderer *renderer)
+    {
+        return std::make_shared<Ship>(position, 100, 1000, 0.1, renderer);
+    }
+}

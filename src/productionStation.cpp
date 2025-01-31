@@ -6,6 +6,7 @@ void ProductionStation::addProductionModule(ProductionModule module)
 {
 
     this->productionModules.push_back(module);
+    this->startNewProductionCycle(productionModules.back());
 
     for (auto &inputWare : module.inputWares)
     {
@@ -43,6 +44,7 @@ void ProductionStation::startNewProductionCycle(ProductionModule &productionModu
 
 void ProductionStation::tick(float dt)
 {
+
     for (auto &productionModule : this->productionModules)
     {
         if (productionModule.halted)

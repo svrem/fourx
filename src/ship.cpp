@@ -29,7 +29,7 @@ void Ship::dock(std::shared_ptr<Station> station)
     this->executeNextOrder();
 }
 
-void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
+void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations, float dt)
 {
     if (this->m_Orders.size() > 0)
     {
@@ -41,6 +41,14 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
         return;
     }
 
+    if (this->m_TimeUntilNextTradeCheck > 0)
+    {
+        this->m_TimeUntilNextTradeCheck -= dt;
+        return;
+    }
+
+    this->m_TimeUntilNextTradeCheck = static_cast<float>(utils::gen() % 60);
+
     std::vector<size_t> station_indices;
     station_indices.reserve(stations.size());
 
@@ -48,6 +56,19 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations)
     for (size_t i = 0; i < stations.size(); i++)
     {
         if (stations[i]->getId() == this->owner->getId())
+        {
+            continue;
+        }
+
+        // float distance = vec2f::distance(this->m_Position, stations[i]->getPosition());
+        auto &targetStationPosition = stations[i]->getPosition();
+        float deltaX = targetStationPosition.x - this->m_Position.x;
+        float deltaY = targetStationPosition.y - this->m_Position.y;
+
+        float distance = deltaX * deltaX + deltaY * deltaY;
+
+        static const float maxDistance = 1000 * 1000; // squared distance
+        if (distance > maxDistance)
         {
             continue;
         }

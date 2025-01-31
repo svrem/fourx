@@ -68,6 +68,11 @@ public:
         return m_Position;
     }
 
+    const std::string &getName() const
+    {
+        return name;
+    }
+
     void __debug_print_inventory() const;
 
 protected:

@@ -6,11 +6,10 @@
 #include "orders.hpp"
 #include "entityManager.hpp"
 
-#include "spdlog/spdlog.h"
-
 #include <algorithm>
 #include <iostream>
 #include <random>
+#include <cassert>
 
 Ship::Ship(vec2f m_Position, float maxSpeed, float cargoCapacity, float weaponAttack, SDL_Renderer *renderer) : m_Position(m_Position), maxSpeed(maxSpeed), cargoCapacity(cargoCapacity), weaponAttack(weaponAttack), m_Renderer(renderer)
 {
@@ -24,7 +23,6 @@ void Ship::claim(std::shared_ptr<Station> station)
 
 void Ship::dock(std::shared_ptr<Station> station)
 {
-    spdlog::debug("Ship {} docking at station {}", this->id, station->getId());
     this->dockedStation = station;
     this->executeNextOrder();
 }
@@ -205,14 +203,11 @@ void Ship::executeNextOrder()
         return;
     }
 
-    spdlog::debug("Executing next order for ship {}", this->id);
-
     ShipOrder order = this->m_Orders[0];
     this->m_Orders.erase(this->m_Orders.begin());
 
     if (std::holds_alternative<orders::DockAtStation>(order))
     {
-        spdlog::debug("ShipOrder: Docking at station");
         auto dockOrder = std::get<orders::DockAtStation>(order);
 
         assert(this->dockedStation == nullptr);
@@ -221,7 +216,6 @@ void Ship::executeNextOrder()
     }
     else if (std::holds_alternative<orders::TradeWithStation>(order))
     {
-        spdlog::debug("ShipOrder: Trading with station");
         auto tradeOrder = std::get<orders::TradeWithStation>(order);
         assert(this->dockedStation == tradeOrder.station);
 
@@ -249,19 +243,17 @@ void Ship::executeNextOrder()
     }
     else if (std::holds_alternative<orders::Undock>(order))
     {
-        spdlog::debug("ShipOrder: Undocking");
         this->undock();
     }
     else if (std::holds_alternative<orders::MoveToPosition>(order))
     {
-        spdlog::debug("ShipOrder: Moving to position");
         auto moveOrder = std::get<orders::MoveToPosition>(order);
 
         this->setTarget(moveOrder.position);
     }
     else
     {
-        spdlog::error("Unknown order type");
+        throw std::runtime_error("Unknown order type");
     }
 }
 
@@ -335,7 +327,6 @@ void Ship::tick(float dt)
     if (distance2 < this->maxSpeed * dt * this->maxSpeed * dt)
     {
 
-        spdlog::debug("Ship {} reached target", this->id);
         this->m_Position = target;
 
         this->m_Target.reset();
@@ -387,7 +378,6 @@ void Ship::doDamage(float damage)
 
     if (this->hullHealth <= 0)
     {
-        spdlog::info("Ship {} destroyed", this->id);
         this->m_Manager->removeShip(this->shared_from_this());
     }
 }

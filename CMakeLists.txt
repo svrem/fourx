@@ -27,51 +27,6 @@ project(fourx LANGUAGES CXX)
 # Set output directory for binaries
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Enable FetchContent for external dependencies
-include(FetchContent)
-
-# Add spdlog via FetchContent
-FetchContent_Declare(
-    spdlog
-    GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG v1.15.0 # Specify a stable version tag
-)
-FetchContent_MakeAvailable(spdlog)
-
-# # Fetch SDL2
-# FetchContent_Declare(
-#     SDL2
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-#     GIT_TAG release-2.30.11 # Use a stable release tag
-#     GIT_SHALLOW TRUE
-#     GIT_PROGRESS TRUE
-# )
-# FetchContent_MakeAvailable(SDL2)
-
-# # Fetch SDL2_image
-# FetchContent_Declare(
-#     SDL2_image
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-#     GIT_TAG release-2.8.4 # Use a stable release tag
-#     GIT_SHALLOW TRUE
-#     GIT_PROGRESS TRUE
-# )
-
-# set(SDL2IMAGE_INSTALL OFF)
-# set(BUILD_SHARED_LIBS FALSE)
-
-# FetchContent_MakeAvailable(SDL2_image)
-
-# FetchContent_Declare(
-#     SDL2_ttf
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
-#     GIT_TAG release-2.24.0
-#     GIT_SHALLOW TRUE
-#     GIT_PROGRESS TRUE
-# )
-
-# set(SDL2TTF_INSTALL OFF)
-# set(BUILD_SHARED_LIBS FALSE)
 
 # FetchContent_MakeAvailable(SDL2_ttf)
 list(APPEND CMAKE_PREFIX_PATH ${SDL2_ttf_PATH})
@@ -82,9 +37,6 @@ file(GLOB SOURCES "src/*.cpp" "src/*.hpp")
 
 
 add_executable(fourx ${SOURCES})
-
-# Link spdlog
-target_link_libraries(fourx PRIVATE spdlog::spdlog)
 
 # Add conditional linking for MinGW (Windows)
 if(MINGW)

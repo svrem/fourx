@@ -1,7 +1,5 @@
 #include "productionStation.hpp"
 
-#include "spdlog/spdlog.h"
-
 void ProductionStation::addProductionModule(ProductionModule module)
 {
 

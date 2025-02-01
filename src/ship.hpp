@@ -107,7 +107,7 @@ private:
     void attack(std::shared_ptr<Ship> target);
 
 public:
-    void render(vec2f camera);
+    void render(vec2f camera, float zoomLevel, vec2f zoomCenter);
     void tick(float dt);
 };
 

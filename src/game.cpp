@@ -92,18 +92,18 @@ void Game::initializeEntities()
     m_UI = std::make_shared<UI>(m_Renderer, m_Font);
     m_EntityManager = std::make_shared<EntityManager>();
 
-    for (uint i = 0; i < 250; i++)
+    for (uint i = 0; i < 1000; i++)
     {
-        float x = static_cast<float>(utils::gen() % 10000) - 5000.0f;
-        float y = static_cast<float>(utils::gen() % 10000) - 5000.0f;
+        float x = static_cast<float>(utils::gen() % 50000) - 25000.0f;
+        float y = static_cast<float>(utils::gen() % 50000) - 25000.0f;
         auto station = ProductionStationPreset::createSiliconWaferProductionStation(vec2f(x, y), "Silicon Wafer Production " + std::to_string(i), m_EntityManager, m_UI, m_Renderer, m_Font);
         m_EntityManager->addStation(station);
     }
 
-    for (uint i = 0; i < 250; i++)
+    for (uint i = 0; i < 1000; i++)
     {
-        float x = static_cast<float>(utils::gen() % 10000) - 5000.0f;
-        float y = static_cast<float>(utils::gen() % 10000) - 5000.0f;
+        float x = static_cast<float>(utils::gen() % 50000) - 25000.0f;
+        float y = static_cast<float>(utils::gen() % 50000) - 25000.0f;
 
         auto ship = ShipPreset::createFreighter(vec2f(x, y), m_Renderer);
         auto station = ProductionStationPreset::createSiliconProductionStation(vec2f(x, y), "Silicon Production " + std::to_string(i), m_EntityManager, m_UI, m_Renderer, m_Font);
@@ -128,6 +128,7 @@ void Game::initializeEntities()
 void Game::run()
 {
     vec2f camera = vec2f(0, 0);
+    float zoomLevel = 1.0f;
 
     bool movingRight = false, movingLeft = false, movingUp = false, movingDown = false;
 
@@ -199,6 +200,15 @@ void Game::run()
                     station->checkForAndHandleMouseClick(camera, event.button.x, event.button.y);
                 }
             }
+
+            if (event.type == SDL_MOUSEWHEEL)
+            {
+                zoomLevel += event.wheel.y * 0.1f;
+                if (zoomLevel < 0.1f)
+                {
+                    zoomLevel = 0.1f;
+                }
+            }
         }
 
         frames++;
@@ -219,36 +229,40 @@ void Game::run()
 
         if (movingRight)
         {
-            camera.x += PLAYER_SPEED * deltaTime;
+            camera.x += PLAYER_SPEED * deltaTime * 1 / zoomLevel;
         }
         if (movingLeft)
         {
-            camera.x -= PLAYER_SPEED * deltaTime;
+            camera.x -= PLAYER_SPEED * deltaTime * 1 / zoomLevel;
         }
         if (movingUp)
         {
-            camera.y -= PLAYER_SPEED * deltaTime;
+            camera.y -= PLAYER_SPEED * deltaTime * 1 / zoomLevel;
         }
         if (movingDown)
         {
-            camera.y += PLAYER_SPEED * deltaTime;
+            camera.y += PLAYER_SPEED * deltaTime * 1 / zoomLevel;
         }
 
         SDL_SetRenderDrawColor(m_Renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(m_Renderer);
 
+        int screenWidth, screenHeight;
+        SDL_GetRendererOutputSize(m_Renderer, &screenWidth, &screenHeight);
+        vec2f zoomCenter = vec2f(screenWidth / 2, screenHeight / 2);
+
         for (auto &station : m_EntityManager->getStations())
         {
             station->reevaluateTradeOffers();
             station->tick(deltaTime);
-            station->render(camera);
+            station->render(camera, zoomLevel, zoomCenter);
         }
 
         for (auto &ship : m_EntityManager->getShips())
         {
             ship->searchForTrade(m_EntityManager->getStations(), deltaTime);
             ship->tick(deltaTime);
-            ship->render(camera);
+            ship->render(camera, zoomLevel, zoomCenter);
         }
 
         // every 5 seconds

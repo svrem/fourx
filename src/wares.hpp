@@ -62,5 +62,5 @@ namespace wares
     };
 
     const std::array<WareQuantity, 1> shipConstructionCost = {
-        WareQuantity{SiliconWafers, 5}};
+        WareQuantity{SiliconWafers, 400}};
 }

@@ -308,10 +308,21 @@ void Station::updateUI()
 
 bool Station::checkForAndHandleMouseClick(vec2f camera, Sint32 x, Sint32 y)
 {
-    int x1 = x + camera.x;
-    int y1 = y + camera.y;
+    // int x1 = x + camera.x;
+    // int y1 = y + camera.y;
 
-    if (x1 >= m_Position.x - 15 && x1 <= m_Position.x + 15 && y1 >= m_Position.y - 15 && y1 <= m_Position.y + 15)
+    // if (x1 >= m_Position.x - 15 && x1 <= m_Position.x + 15 && y1 >= m_Position.y - 15 && y1 <= m_Position.y + 15)
+    // {
+    //     this->m_Selected = !this->m_Selected;
+    //     this->updateUI();
+
+    //     return true;
+    // }
+
+    // this->m_Selected = false;
+    // return false;
+
+    if (x >= m_OnScreenX && x <= m_OnScreenX + m_OnScreenWidth && y >= m_OnScreenY && y <= m_OnScreenY + m_OnScreenHeight)
     {
         this->m_Selected = !this->m_Selected;
         this->updateUI();
@@ -329,21 +340,30 @@ void Station::deselect()
 }
 
 // SDL
-void Station::render(vec2f camera)
+void Station::render(vec2f &camera, float &zoomLevel, vec2f &zoomCenter)
 {
     vec2f position = m_Position - camera;
 
     SDL_Rect dest;
-    dest.x = position.x - 15;
-    dest.y = position.y - 15;
-    dest.w = 30;
-    dest.h = 30;
+
+    dest.x = (position.x - zoomCenter.x) * zoomLevel + zoomCenter.x - 15 * zoomLevel;
+    dest.y = (position.y - zoomCenter.y) * zoomLevel + zoomCenter.y - 15 * zoomLevel;
+    dest.w = 30 * zoomLevel;
+    dest.h = 30 * zoomLevel;
+
+    m_OnScreenX = dest.x;
+    m_OnScreenY = dest.y;
+    m_OnScreenWidth = dest.w;
+    m_OnScreenHeight = dest.h;
 
     SDL_RenderCopy(m_Renderer, m_Texture, NULL, &dest);
 
+    if (zoomLevel < 0.5f)
+        return;
+
     SDL_Rect nameDest;
-    nameDest.x = position.x - m_NameTextHeight / 2;
-    nameDest.y = position.y + 30;
+    nameDest.x = dest.x - m_NameTextWidth / 2;
+    nameDest.y = dest.y - 30;
     nameDest.w = m_NameTextWidth;
     nameDest.h = m_NameTextHeight;
 

@@ -119,11 +119,14 @@ protected:
 
     // SDL
 public:
-    void render(vec2f camera);
+    void render(vec2f &camera, float &zoomLevel, vec2f &zoomCenter);
 
 protected:
     SDL_Renderer *m_Renderer;
     SDL_Texture *m_Texture;
     SDL_Texture *m_NameTexture;
     int m_NameTextWidth, m_NameTextHeight;
+
+    int m_OnScreenX, m_OnScreenY;
+    int m_OnScreenWidth, m_OnScreenHeight;
 };

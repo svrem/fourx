@@ -66,22 +66,35 @@ void Ship::searchForTrade(const std::vector<std::shared_ptr<Station>> &stations,
         float distance = deltaX * deltaX + deltaY * deltaY;
 
         static const float maxDistance = 1000 * 1000; // squared distance
-        if (distance > maxDistance)
-        {
-            continue;
-        }
+        // if (distance > maxDistance)
+        // {
+        //     continue;
+        // }
 
         station_indices.push_back(i);
     }
 
-    std::shuffle(station_indices.begin(), station_indices.end(), utils::gen);
+    // std::shuffle(station_indices.begin(), station_indices.end(), utils::gen);
+    std::sort(station_indices.begin(), station_indices.end(), [&](size_t a, size_t b)
+              {
+        auto &targetStationPositionA = stations[a]->getPosition();
+        auto &targetStationPositionB = stations[b]->getPosition();
+
+        float deltaXA = targetStationPositionA.x - this->m_Position.x;
+        float deltaYA = targetStationPositionA.y - this->m_Position.y;
+        float distanceA = deltaXA * deltaXA + deltaYA * deltaYA;
+
+        float deltaXB = targetStationPositionB.x - this->m_Position.x;
+        float deltaYB = targetStationPositionB.y - this->m_Position.y;
+        float distanceB = deltaXB * deltaXB + deltaYB * deltaYB;
+
+        return distanceA < distanceB; });
 
     auto buyOffersOwner = this->owner->getBuyOffers();
     auto sellOffersOwner = this->owner->getSellOffers();
 
     for (size_t index : station_indices)
     {
-
         auto station = stations[index];
 
         auto buyOffersStation = station->getBuyOffers();
@@ -429,7 +442,7 @@ void Ship::intercept(std::shared_ptr<Ship> target, float dt)
     }
 }
 
-void Ship::render(vec2f camera)
+void Ship::render(vec2f camera, float zoomLevel, vec2f zoomCenter)
 {
     if (this->dockedStation != nullptr)
     {
@@ -439,21 +452,24 @@ void Ship::render(vec2f camera)
     vec2f position = this->m_Position - camera;
 
     SDL_Rect dest;
-    dest.x = position.x - 5;
-    dest.y = position.y - 5;
-    dest.w = 10;
-    dest.h = 10;
+    dest.x = (position.x - zoomCenter.x) * zoomLevel + zoomCenter.x - 5 * zoomLevel;
+    dest.y = (position.y - zoomCenter.y) * zoomLevel + zoomCenter.y - 5 * zoomLevel;
+    dest.w = 10 * zoomLevel;
+    dest.h = 10 * zoomLevel;
 
     SDL_SetRenderDrawColor(m_Renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
     SDL_RenderFillRect(m_Renderer, &dest);
 
+    if (zoomLevel < 0.5f)
+        return;
+
     static const int maxHealth = 100;
     static const int maxHealthBarWidth = 20;
     SDL_Rect healthBar;
-    healthBar.x = position.x - maxHealthBarWidth / 2;
-    healthBar.y = position.y + 15;
-    healthBar.w = this->hullHealth / 100 * maxHealthBarWidth;
-    healthBar.h = 5;
+    healthBar.w = this->hullHealth / 100 * maxHealthBarWidth * zoomLevel;
+    healthBar.h = 5 * zoomLevel;
+    healthBar.x = dest.x - (maxHealthBarWidth / 4) * zoomLevel;
+    healthBar.y = dest.y + 15 * zoomLevel;
 
     SDL_SetRenderDrawColor(m_Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
     SDL_RenderFillRect(m_Renderer, &healthBar);
